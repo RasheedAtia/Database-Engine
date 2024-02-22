@@ -1,16 +1,34 @@
-import java.io.Serializable;
 import java.util.Vector;
 
+/**
+ * The Page class represents a page in a database table.
+ * It contains a vector of tuples, which represent the rows in the page.
+ */
 public class Page {
+    // Vector of tuples in the page
     private Vector<Tuple> tuples;
 
+    /**
+     * Returns the vector of tuples in the page.
+     * @return Vector of tuples
+     */
     public Vector<Tuple> getTuples() {
         return tuples;
     }
+
+    /**
+     * Sets the vector of tuples in the page.
+     * @param tuples Vector of tuples
+     */
     public void setTuples(Vector<Tuple> tuples) {
         this.tuples = tuples;
     }
 
+    /**
+     * Returns a string representation of the page.
+     * The string is a comma-separated list of the string representations of the tuples.
+     * @return String representation of the page
+     */
     public String toString(){
         String res = "";
         for(int i = 0; i < tuples.size(); i++){
@@ -18,6 +36,12 @@ public class Page {
         }
         return res.substring(0,res.length() - 1);
     }
+
+    /**
+     * Main method for testing the Page class.
+     * Creates a page and adds two tuples to it, then prints the page.
+     * @param args Command-line arguments (not used)
+     */
     public static void main(String[] args){
         Page p = new Page();
         Tuple v1 = new Tuple("Yousef", 20, "zdfg");
@@ -27,46 +51,5 @@ public class Page {
         p.tuples.add(v1);
         p.tuples.add(v2);
         System.out.print(p);
-    }
-}
-
-class Tuple implements Serializable{
-    private String name;
-    private Integer age;
-    private String address;
-
-    public Tuple(String name, Integer age, String address){
-        this.name = name;
-        this.age = age;
-        this.address = address;
-    }
-
-    public String getName(){
-        return this.name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public void setAge(Integer age) {
-        this.age = age;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    @Override
-    public String toString() {
-        return name + "," + age + "," + address;
     }
 }
