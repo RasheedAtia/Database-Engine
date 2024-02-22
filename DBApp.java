@@ -2,6 +2,7 @@
 /** * @author Wael Abouelsaadat */ 
 
 import java.util.Iterator;
+import java.util.Vector;
 import java.util.Hashtable;
 
 
@@ -32,6 +33,9 @@ public class DBApp {
 							String strClusteringKeyColumn,  
 							Hashtable<String,String> htblColNameType) throws DBAppException{
 								
+		Table t = new Table();
+		t.setPages(new Vector<String>());
+		
 		throw new DBAppException("not implemented yet");
 	}
 
