@@ -2,9 +2,9 @@
 /** * @author Wael Abouelsaadat */ 
 
 import java.util.Iterator;
-import java.util.Vector;
 import java.util.Hashtable;
-
+import java.io.FileWriter;
+import java.io.IOException;
 
 public class DBApp {
 
@@ -32,13 +32,40 @@ public class DBApp {
 	public void createTable(String strTableName, 
 							String strClusteringKeyColumn,  
 							Hashtable<String,String> htblColNameType) throws DBAppException{
-								
-		Table t = new Table();
-		t.setPages(new Vector<String>());
-		
-		throw new DBAppException("not implemented yet");
+							
+		// create a new table object
+		Table t = new Table(strTableName, strClusteringKeyColumn, htblColNameType);
+
+		// save the metadata
+		saveTable(t, strTableName, strClusteringKeyColumn, htblColNameType);
 	}
 
+	public void saveTable(	Table t, 
+							String strTableName, 
+							String strClusteringKeyColumn,  
+							Hashtable<String,String> htblColNameType){
+		// File path where you want to create the csv file
+        String filePath = strTableName + ".csv";
+
+        try {
+            // Create FileWriter object with the file path
+            FileWriter writer = new FileWriter(filePath);
+			
+            // Write some text to the file
+			for(String key : htblColNameType.keySet()){
+				writer.write(strTableName + "," + key + "," + htblColNameType.get(key) + "," + 
+				(key == strClusteringKeyColumn) + ",null,null\n");
+			}
+
+            // Close the writer
+            writer.close();
+
+            System.out.println("Csv file created successfully.");
+        } catch (IOException e) {
+            System.out.println("An error occurred while creating the Csv file.");
+            e.printStackTrace();
+        }
+	}
 
 	// following method creates a B+tree index 
 	public void createIndex(String   strTableName,
@@ -54,6 +81,7 @@ public class DBApp {
 	public void insertIntoTable(String strTableName, 
 								Hashtable<String,Object>  htblColNameValue) throws DBAppException{
 	
+		
 		throw new DBAppException("not implemented yet");
 	}
 

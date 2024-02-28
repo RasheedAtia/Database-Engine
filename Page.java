@@ -1,7 +1,5 @@
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Vector;
@@ -45,6 +43,24 @@ public class Page implements Serializable{
 
     public boolean isFull(){
         return tuples.size() == 200;
+    }
+
+    public void addTuple(Tuple t) throws DBAppException{
+        if(isFull()){
+            throw new DBAppException("Page is full");
+        }
+        tuples.add(t);
+    }
+
+    public void removeTuple(Tuple t){
+        // if page is empty after removing, throw exception
+
+        tuples.remove(t);
+    }
+
+    public void updateTuple(Tuple oldRow, Tuple newRow){
+        int index = tuples.indexOf(oldRow);
+        tuples.set(index, newRow);
     }
 
     /**
