@@ -1,33 +1,21 @@
 
 /** * @author Wael Abouelsaadat */
 import java.util.Iterator;
-import java.util.List;
-import java.util.ArrayList;
 import java.util.Hashtable;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 
 public class DBApp {
 	private Hashtable<String, Table> tables;
+	private Metadata metadata;
 
 	public DBApp() {
 		tables = new Hashtable<String, Table>();
-		// File path where you want to create the csv file
-		String fileName = "metadata.csv";
 
 		try {
-			// Create FileWriter object with the file path
-			FileWriter writer = new FileWriter(fileName);
-
-			// Close the writer
-			writer.close();
-
-			System.out.println("Csv file created successfully.");
+			metadata = new Metadata();
+			System.out.println("Metadata file created successfully!");
 		} catch (IOException e) {
-			System.out.println("An error occurred while creating the Csv file.");
+			System.out.println("An error occurred while creating the Metadata file.");
 			e.printStackTrace();
 		}
 	}
@@ -54,27 +42,11 @@ public class DBApp {
 		tables.put(strTableName, t);
 
 		// save the metadata
-		saveTable(t);
-	}
-
-	public void saveTable(Table t) {
-
-		// File path where you want to create the csv file
-		String fileName = "metadata.csv";
-
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
-			// Write each column data to the metadata file
-			for (String key : t.getHtblColNameType().keySet()) {
-				writer.write(t.name + "," + key + "," + t.getHtblColNameType().get(key) + "," +
-						(key == t.getClusteringKey()) + ",null,null\n");
-			}
-
-			// Close the writer
-			writer.close();
-
-			System.out.println("Table added to csv file successfully.");
+		try {
+			metadata.saveTable(t);
+			System.out.println("Table added to Metadata file successfully!");
 		} catch (IOException e) {
-			System.out.println("An error occurred while saving the table to csv file.");
+			System.out.println("An error occurred while saving the table to Metadata file.");
 		}
 	}
 
@@ -91,38 +63,10 @@ public class DBApp {
 		t.getColIdx().put(strColName, tree);
 
 		try {
-			String fileName = "metadata.csv";
-
-			// Read the existing CSV file
-			List<String> lines = new ArrayList<>();
-			try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					lines.add(line);
-				}
-			}
-
-			// Modify content of the CSV file
-			for (int i = 0; i < lines.size(); i++) {
-				String[] cells = lines.get(i).split(",");
-				if (cells[0].equals(strTableName) && cells[1].equals(strColName)) {
-					cells[4] = strIndexName;
-					cells[5] = "B+tree";
-					lines.set(i, String.join(",", cells));
-					break;
-				}
-			}
-
-			// Write the updated content back to the CSV file
-			try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
-				for (String updatedLine : lines) {
-					writer.write(updatedLine);
-					writer.newLine();
-				}
-			}
-
-			System.out.println("Index added to csv file successfully!");
+			metadata.saveIndex(strTableName, strColName, strIndexName);
+			System.out.println("Index added to Metadata file successfully!");
 		} catch (IOException e) {
+			System.out.println("An error occurred while saving the Index to Metadata file.");
 			e.printStackTrace();
 		}
 	}
