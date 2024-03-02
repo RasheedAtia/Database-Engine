@@ -7,6 +7,8 @@ public class Table implements Serializable {
     private String clusteringKey;
 
     private Hashtable<String, bplustree> colIdx;
+    private Hashtable<String, String> htblColNameType;
+
     private Vector<String> pages;
 
     public Table(String name, String clusteringKeyColumn, Hashtable<String, String> htblColNameType) {
@@ -15,7 +17,7 @@ public class Table implements Serializable {
 
         this.name = name;
         this.clusteringKey = clusteringKeyColumn;
-
+        this.htblColNameType = htblColNameType;
     }
 
     public String getClusteringKey() {
@@ -24,6 +26,14 @@ public class Table implements Serializable {
 
     public void setClusteringKey(String clusteringKey) {
         this.clusteringKey = clusteringKey;
+    }
+
+    public Hashtable<String, String> getHtblColNameType() {
+        return htblColNameType;
+    }
+
+    public void setHtblColNameType(Hashtable<String, String> htblColNameType) {
+        this.htblColNameType = htblColNameType;
     }
 
     public Hashtable<String, bplustree> getColIdx() {

@@ -1,6 +1,5 @@
 
 /** * @author Wael Abouelsaadat */
-//import lib.Bplustree.jar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
@@ -16,6 +15,21 @@ public class DBApp {
 
 	public DBApp() {
 		tables = new Hashtable<String, Table>();
+		// File path where you want to create the csv file
+		String fileName = "metadata.csv";
+
+		try {
+			// Create FileWriter object with the file path
+			FileWriter writer = new FileWriter(fileName);
+
+			// Close the writer
+			writer.close();
+
+			System.out.println("Csv file created successfully.");
+		} catch (IOException e) {
+			System.out.println("An error occurred while creating the Csv file.");
+			e.printStackTrace();
+		}
 	}
 
 	// this does whatever initialization you would like
@@ -38,34 +52,29 @@ public class DBApp {
 		// create a new table object
 		Table t = new Table(strTableName, strClusteringKeyColumn, htblColNameType);
 		tables.put(strTableName, t);
+
 		// save the metadata
-		saveTable(t, strTableName, strClusteringKeyColumn, htblColNameType);
+		saveTable(t);
 	}
 
-	public void saveTable(Table t,
-			String strTableName,
-			String strClusteringKeyColumn,
-			Hashtable<String, String> htblColNameType) {
+	public void saveTable(Table t) {
+
 		// File path where you want to create the csv file
-		String filePath = strTableName + ".csv";
+		String fileName = "metadata.csv";
 
-		try {
-			// Create FileWriter object with the file path
-			FileWriter writer = new FileWriter(filePath);
-
-			// Write some text to the file
-			for (String key : htblColNameType.keySet()) {
-				writer.write(strTableName + "," + key + "," + htblColNameType.get(key) + "," +
-						(key == strClusteringKeyColumn) + ",null,null\n");
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
+			// Write each column data to the metadata file
+			for (String key : t.getHtblColNameType().keySet()) {
+				writer.write(t.name + "," + key + "," + t.getHtblColNameType().get(key) + "," +
+						(key == t.getClusteringKey()) + ",null,null\n");
 			}
 
 			// Close the writer
 			writer.close();
 
-			System.out.println("Csv file created successfully.");
+			System.out.println("Table added to csv file successfully.");
 		} catch (IOException e) {
-			System.out.println("An error occurred while creating the Csv file.");
-			e.printStackTrace();
+			System.out.println("An error occurred while saving the table to csv file.");
 		}
 	}
 
@@ -73,24 +82,30 @@ public class DBApp {
 	public void createIndex(String strTableName,
 			String strColName,
 			String strIndexName) throws DBAppException {
+
+		// Create empty bplustree index
 		bplustree tree = new bplustree(0);
+
+		// get table to insert index into
 		Table t = tables.get(strTableName);
 		t.getColIdx().put(strColName, tree);
+
 		try {
-			String filePath = strTableName + ".csv";
+			String fileName = "metadata.csv";
 
 			// Read the existing CSV file
 			List<String> lines = new ArrayList<>();
-			try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+			try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
 				String line;
 				while ((line = reader.readLine()) != null) {
 					lines.add(line);
 				}
 			}
+
 			// Modify content of the CSV file
 			for (int i = 0; i < lines.size(); i++) {
 				String[] cells = lines.get(i).split(",");
-				if (cells[1].equals(strColName)) {
+				if (cells[0].equals(strTableName) && cells[1].equals(strColName)) {
 					cells[4] = strIndexName;
 					cells[5] = "B+tree";
 					lines.set(i, String.join(",", cells));
@@ -99,14 +114,14 @@ public class DBApp {
 			}
 
 			// Write the updated content back to the CSV file
-			try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+			try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
 				for (String updatedLine : lines) {
 					writer.write(updatedLine);
 					writer.newLine();
 				}
 			}
 
-			System.out.println("CSV file updated successfully!");
+			System.out.println("Index added to csv file successfully!");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

@@ -1,1 +1,4 @@
-<classpathentry kind="lib" path="${JAVA_HOME}/lib/Bplustree.jar">
+<classpathentry
+  kind="lib"
+  path="${JAVA_HOME}/lib/Bplustree.jar"
+></classpathentry>
