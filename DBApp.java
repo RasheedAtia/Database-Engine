@@ -76,7 +76,44 @@ public class DBApp {
 	public void insertIntoTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException {
 
-		throw new DBAppException("not implemented yet");
+		// get table to insert into
+		Table table = tables.get(strTableName);
+		Tuple newTuple = new Tuple();
+
+		Object[] newFields = new Object[table.getHtblColNameType().size()];
+		int pos = 0;
+
+		for (String col : table.getHtblColNameType().keySet()) {
+			try {
+				Object existingColValueType = Class.forName(table.getHtblColNameType().get(col));
+				Object newColValueType = htblColNameValue.get(col).getClass();
+
+				if (!existingColValueType.equals(newColValueType)) {
+					throw new DBAppException("Invalid insert type for column " + col);
+				}
+
+				// bplustree b = table.getColIdx().get(col);
+				// if(b != null){
+				// b.insert(, htblColNameValue.get(col));
+				// }
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			newFields[pos++] = htblColNameValue.get(col);
+		}
+		newTuple.setFields(newFields);
+
+		if (table.isFull()) {
+			try {
+				table.addPage(newTuple);
+			} catch (IOException i) {
+				System.out.println("Could not save page correctly");
+				i.printStackTrace();
+			}
+		} else {
+			table.getPages().get(table.getPages().size() - 1).addTuple(newTuple);
+		}
 	}
 
 	// following method updates one row only
@@ -115,15 +152,23 @@ public class DBApp {
 			Hashtable<String, String> htblColNameType = new Hashtable<>();
 			htblColNameType.put("id", "java.lang.Integer");
 			htblColNameType.put("name", "java.lang.String");
-			htblColNameType.put("gpa", "java.lang.double");
+
+			// CHANGED java.lang.double -> java.lang.Double
+
+			htblColNameType.put("gpa", "java.lang.Double");
 			dbApp.createTable(strTableName, "id", htblColNameType);
 			dbApp.createIndex(strTableName, "gpa", "gpaIndex");
 
-			// Hashtable<String, Object> htblColNameValue = new Hashtable<>();
-			// htblColNameValue.put("id", new Integer(2343432));
-			// htblColNameValue.put("name", new String("Ahmed Noor"));
-			// htblColNameValue.put("gpa", new Double(0.95));
-			// dbApp.insertIntoTable(strTableName, htblColNameValue);
+			for (int i = 0; i <= 200; i++) {
+				Hashtable<String, Object> htblColNameValue = new Hashtable<>();
+				htblColNameValue.put("id", new Integer(2343432));
+				htblColNameValue.put("name", new String("Ahmed Noor"));
+				htblColNameValue.put("gpa", new Double(0.95));
+				dbApp.insertIntoTable(strTableName, htblColNameValue);
+			}
+			System.out.println(dbApp.tables.get("Student").getPages().get(0));
+			System.out.println();
+			System.out.println(dbApp.tables.get("Student").getPages().get(1));
 
 			// htblColNameValue.clear();
 			// htblColNameValue.put("id", new Integer(453455));

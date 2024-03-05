@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -9,10 +10,10 @@ public class Table implements Serializable {
     private Hashtable<String, bplustree> colIdx;
     private Hashtable<String, String> htblColNameType;
 
-    private Vector<String> pages;
+    private Vector<Page> pages;
 
     public Table(String name, String clusteringKeyColumn, Hashtable<String, String> htblColNameType) {
-        pages = new Vector<String>();
+        pages = new Vector<Page>();
         colIdx = new Hashtable<String, bplustree>();
 
         this.name = name;
@@ -44,11 +45,22 @@ public class Table implements Serializable {
         this.colIdx = colIdx;
     }
 
-    public Vector<String> getPages() {
+    public Vector<Page> getPages() {
         return pages;
     }
 
-    public void setPages(Vector<String> pages) {
+    public void setPages(Vector<Page> pages) {
         this.pages = pages;
+    }
+
+    public void addPage(Tuple newRow) throws IOException {
+        String pageName = this.name + "_page_" + (this.pages.size() + 1);
+        Page page = new Page(pageName, newRow);
+        pages.add(page);
+        page.savePage();
+    }
+
+    public boolean isFull() {
+        return (this.pages.size() == 0) || (this.pages.get(this.pages.size() - 1).isFull());
     }
 }
