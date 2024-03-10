@@ -87,6 +87,28 @@ public class Page implements Serializable {
         fileOut.close();
     }
 
+    public int findRow(Tuple targetRow, int clusteringKeyIndex, String clusteringKeyType) throws DBAppException {
+        Object targetRowClusteringKey = targetRow.getFields()[clusteringKeyIndex];
+        int start = 0;
+        int end = this.tuples.size() - 1;
+        int row = 0;
+
+        while (start <= end) {
+            int mid = start + (end - start) / 2;
+            Object currRow = this.tuples.get(mid).getFields()[clusteringKeyIndex];
+
+            int comparison = Table.compareClusteringKey(targetRowClusteringKey, currRow, clusteringKeyType);
+            if (comparison < 0) {
+                end = mid - 1;
+            } else {
+                row = mid;
+                start = mid + 1;
+            }
+        }
+
+        return row;
+    }
+
     /**
      * Main method for testing the Page class.
      * Creates a page and adds two tuples to it, then prints the page.

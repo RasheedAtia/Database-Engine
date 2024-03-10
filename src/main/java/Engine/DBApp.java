@@ -2,16 +2,11 @@ package Engine;
 
 /** * @author Wael Abouelsaadat */
 import java.util.Iterator;
-import java.util.Map;
-
-import com.github.davidmoten.bplustree.BPlusTree;
-import com.github.davidmoten.bplustree.Serializer;
 
 import Exceptions.DBAppException;
 import Table.Table;
 import Table.Tuple;
 
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.io.IOException;
 
@@ -104,12 +99,12 @@ public class DBApp {
 			}
 
 			// TODO insert new row into bplustree for each column if applicable
-			// TODO get insertion position and shift rows down to insert new row
 
 			newFields[pos++] = htblColNameValue.get(col);
 		}
 		newTuple.setFields(newFields);
 
+		// TODO get insertion position and shift rows down to insert new row
 		if (table.isFull()) {
 			table.addPage(newTuple);
 		} else {
