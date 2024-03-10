@@ -14,6 +14,10 @@ public class DBApp {
 	private Hashtable<String, Table> tables;
 	private Metadata metadata;
 
+	/**
+	 * Constructs a new DBApp.
+	 * Initializes the tables hashtable and the metadata object.
+	 */
 	public DBApp() {
 		tables = new Hashtable<String, Table>();
 
@@ -26,19 +30,22 @@ public class DBApp {
 		}
 	}
 
-	// this does whatever initialization you would like
-	// or leave it empty if there is no code you want to
-	// execute at application startup
+	/**
+	 * This method does whatever initialization you would like
+	 * or leave it empty if there is no code you want to
+	 * execute at application startup.
+	 */
 	public void init() {
 
 	}
 
-	// following method creates one table only
-	// strClusteringKeyColumn is the name of the column that will be the primary
-	// key and the clustering column as well. The data type of that column will
-	// be passed in htblColNameType
-	// htblColNameValue will have the column name as key and the data
-	// type as value
+	/**
+	 * @param strTableName           The name of the table to be created
+	 * @param strClusteringKeyColumn The name of the column that will be the primary
+	 *                               key
+	 * @param htblColNameType        A hashtable mapping column names to their types
+	 * @throws DBAppException If an error occurs during table creation
+	 */
 	public void createTable(String strTableName,
 			String strClusteringKeyColumn,
 			Hashtable<String, String> htblColNameType) throws DBAppException {
@@ -56,7 +63,15 @@ public class DBApp {
 		}
 	}
 
-	// following method creates a B+tree index
+	/**
+	 * Creates a B+tree index on a specified column of a table.
+	 * TODO: create new BPlusTree for this table column
+	 *
+	 * @param strTableName the name of the table to create the index on
+	 * @param strColName   the name of the column to create the index on
+	 * @param strIndexName the name of the index to be created
+	 * @throws DBAppException if an error occurs while creating the index
+	 */
 	public void createIndex(String strTableName,
 			String strColName,
 			String strIndexName) throws DBAppException {
@@ -67,8 +82,6 @@ public class DBApp {
 		// get the column type
 		String colType = t.getHtblColNameType().get(strColName);
 
-		// TODO create new BPlusTree for this table column
-
 		try {
 			metadata.saveIndex(strTableName, strColName, strIndexName);
 			System.out.println("Index added to Metadata file successfully!");
@@ -78,8 +91,21 @@ public class DBApp {
 		}
 	}
 
-	// following method inserts one row only.
-	// htblColNameValue must include a value for the primary key
+	/**
+	 * Inserts a new tuple into the specified table with the given column-value
+	 * pairs.
+	 * 
+	 * TODO: insert new row into bplustree for each column if applicable
+	 * TODO: get insertion position and shift rows down to insert new row
+	 * 
+	 * @param strTableName     the name of the table to insert into
+	 * @param htblColNameValue a Hashtable containing the column-value pairs for the
+	 *                         new tuple
+	 * @throws DBAppException         if there is an error in the database operation
+	 * @throws ClassNotFoundException if the specified class is not found
+	 * @throws IOException            if there is an error in the input/output
+	 *                                operation
+	 */
 	public void insertIntoTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
@@ -98,13 +124,10 @@ public class DBApp {
 				throw new DBAppException("Invalid insert type for column " + col);
 			}
 
-			// TODO insert new row into bplustree for each column if applicable
-
 			newFields[pos++] = htblColNameValue.get(col);
 		}
 		newTuple.setFields(newFields);
 
-		// TODO get insertion position and shift rows down to insert new row
 		if (table.isFull()) {
 			table.addPage(newTuple);
 		} else {

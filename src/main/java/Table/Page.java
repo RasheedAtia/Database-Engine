@@ -17,6 +17,13 @@ public class Page implements Serializable {
     private Vector<Tuple> tuples;
     public String name;
 
+    /**
+     * Constructor for the Page class.
+     * Initializes the name of the page and adds the first tuple to the page.
+     *
+     * @param name  The name of the page
+     * @param tuple The first tuple to be added to the page
+     */
     public Page(String name, Tuple tuple) {
         this.name = name;
         this.tuples = new Vector<Tuple>();
@@ -56,11 +63,24 @@ public class Page implements Serializable {
         return res.substring(0, res.length() - 1);
     }
 
-    // TODO get page size from DBApp.config
+    /**
+     * Checks if the page is full.
+     * Currently, a page is considered full if it contains 200 tuples.
+     * TODO: Get the page size from DBApp.config
+     *
+     * @return true if the page is full, false otherwise
+     */
     public boolean isFull() {
         return tuples.size() == 200;
     }
 
+    /**
+     * Adds a tuple to the page.
+     * Throws a DBAppException if the page is full.
+     *
+     * @param t The tuple to be added
+     * @throws DBAppException If the page is full
+     */
     public void addTuple(Tuple t) throws DBAppException {
         if (isFull()) {
             throw new DBAppException("Page is full");
@@ -68,17 +88,33 @@ public class Page implements Serializable {
         tuples.add(t);
     }
 
+    /**
+     * Removes a tuple from the page.
+     *
+     * @param t The tuple to be removed
+     */
     public void removeTuple(Tuple t) {
         // if page is empty after removing, throw exception
 
         tuples.remove(t);
     }
 
+    /**
+     * Updates a tuple in the page.
+     *
+     * @param oldRow The old tuple
+     * @param newRow The new tuple
+     */
     public void updateTuple(Tuple oldRow, Tuple newRow) {
         int index = tuples.indexOf(oldRow);
         tuples.set(index, newRow);
     }
 
+    /**
+     * Saves the page to disk.
+     *
+     * @throws IOException If an I/O error occurs
+     */
     public void savePage() throws IOException {
         FileOutputStream fileOut = new FileOutputStream(this.name + ".class");
         ObjectOutputStream out = new ObjectOutputStream(fileOut);
@@ -87,7 +123,18 @@ public class Page implements Serializable {
         fileOut.close();
     }
 
-    public int findRow(Tuple targetRow, int clusteringKeyIndex, String clusteringKeyType) throws DBAppException {
+    /**
+     * Finds the appropriate row index for inserting a target row into the page
+     * based on the clustering key.
+     *
+     * @param targetRow          the target row to be inserted
+     * @param clusteringKeyIndex the index of the clustering key in the row
+     * @param clusteringKeyType  the data type of the clustering key
+     * @return the index of the row where the target row should be inserted
+     * @throws DBAppException if an error occurs during the insertion process
+     */
+    public int findInsertionRow(Tuple targetRow, int clusteringKeyIndex, String clusteringKeyType)
+            throws DBAppException {
         Object targetRowClusteringKey = targetRow.getFields()[clusteringKeyIndex];
         int start = 0;
         int end = this.tuples.size() - 1;
@@ -107,26 +154,5 @@ public class Page implements Serializable {
         }
 
         return row;
-    }
-
-    /**
-     * Main method for testing the Page class.
-     * Creates a page and adds two tuples to it, then prints the page.
-     * 
-     * @param args Command-line arguments (not used)
-     */
-    public static void main(String[] args) {
-        Tuple v1 = new Tuple("Yousef", 20, "zdfg");
-        Tuple v2 = new Tuple("Seif", 19, "xcfhbf");
-        Page p = new Page("page1", v1);
-
-        p.tuples.add(v2);
-        System.out.print(p);
-
-        try {
-            p.savePage();
-        } catch (IOException i) {
-            i.printStackTrace();
-        }
     }
 }
