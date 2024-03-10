@@ -19,14 +19,24 @@ public class Page implements Serializable {
 
     /**
      * Constructor for the Page class.
+     * Initializes the name of the page and empty tuple vector.
+     *
+     * @param name The name of the page
+     */
+    public Page(String name) {
+        this.name = name;
+        this.tuples = new Vector<Tuple>();
+    }
+
+    /**
+     * Constructor for the Page class.
      * Initializes the name of the page and adds the first tuple to the page.
      *
      * @param name  The name of the page
      * @param tuple The first tuple to be added to the page
      */
     public Page(String name, Tuple tuple) {
-        this.name = name;
-        this.tuples = new Vector<Tuple>();
+        this(name);
         this.tuples.add(tuple);
     }
 
@@ -147,8 +157,8 @@ public class Page implements Serializable {
             int comparison = Table.compareClusteringKey(targetRowClusteringKey, currRow, clusteringKeyType);
             if (comparison < 0) {
                 end = mid - 1;
-            } else {
                 row = mid;
+            } else {
                 start = mid + 1;
             }
         }

@@ -117,6 +117,103 @@ public class Table implements Serializable {
         return (this.pages.size() == 0) || (this.pages.get(this.pages.size() - 1).isFull());
     }
 
+    public void insertRow(Hashtable<String, Object> htblColNameValue)
+            throws DBAppException, ClassNotFoundException, IOException {
+        Tuple newRow = this.convertInputToTuple(htblColNameValue);
+
+        if (this.pages.size() == 0) {
+            Page firstPage = new Page("page 0", newRow);
+            firstPage.savePage();
+            this.pages.add(firstPage);
+            return;
+        }
+
+        String[] insertionPos = this.getInsertionPos(newRow).split("_");
+
+        if (insertionPos.length != 2)
+            throw new DBAppException("Error in finding insertion position");
+
+        int targetPageNum = Integer.parseInt(insertionPos[0]);
+        int targetRowNum = Integer.parseInt(insertionPos[1]);
+
+        if ((this.pages.get(this.pages.size() - 1).isFull())) {
+
+            // insert new row in new page
+            if (targetPageNum > this.pages.size() - 1) {
+                Page lastPage = new Page("page " + targetPageNum, newRow);
+                lastPage.savePage();
+                this.pages.add(lastPage);
+                return;
+            }
+
+            Page newPage = new Page("page " + this.pages.size());
+            this.pages.add(newPage);
+        }
+
+        this.shiftRowsDown(targetPageNum);
+
+        Vector<Tuple> currPageTuples = this.pages.get(targetPageNum).getTuples();
+        Page newPage;
+
+        if (targetRowNum == 0) {
+            newPage = new Page("page " + targetPageNum, newRow);
+        } else {
+            newPage = new Page("page " + targetPageNum);
+        }
+
+        for (int row = 0; row <= currPageTuples.size(); row++) {
+            if (row == targetRowNum && row != 0)
+                newPage.addTuple(newRow);
+
+            if (row < Math.min(199, currPageTuples.size()))
+                newPage.addTuple(currPageTuples.get(row));
+        }
+
+        newPage.savePage();
+        this.pages.set(targetPageNum, newPage);
+    }
+
+    public Tuple convertInputToTuple(Hashtable<String, Object> htblColNameValue)
+            throws DBAppException, ClassNotFoundException {
+        // fill tuple with values from input parameter htblColNameValue
+        Tuple newTuple = new Tuple();
+
+        Object[] newFields = new Object[this.getHtblColNameType().size()];
+        int pos = 0;
+
+        for (String col : this.getHtblColNameType().keySet()) {
+            Object existingColValueType = Class.forName(this.getHtblColNameType().get(col));
+            Object newColValueType = htblColNameValue.get(col).getClass();
+
+            if (!existingColValueType.equals(newColValueType)) {
+                throw new DBAppException("Invalid insert type for column " + col);
+            }
+
+            newFields[pos++] = htblColNameValue.get(col);
+        }
+
+        newTuple.setFields(newFields);
+
+        return newTuple;
+    }
+
+    private void shiftRowsDown(int targetPageNum) throws DBAppException, IOException {
+        for (int pageNum = this.pages.size() - 1; pageNum > targetPageNum; pageNum--) {
+            Vector<Tuple> prevPageTuples = this.pages.get(pageNum - 1).getTuples();
+            Vector<Tuple> currPageTuples = this.pages.get(pageNum).getTuples();
+
+            Tuple lastRowPrevPage = prevPageTuples.get(prevPageTuples.size() - 1);
+            Page newPage = new Page("page " + pageNum, lastRowPrevPage);
+
+            for (int row = 0; row < Math.min(currPageTuples.size(), 200 - 1); row++) {
+                newPage.addTuple(currPageTuples.get(row));
+            }
+
+            this.pages.set(pageNum, newPage);
+            newPage.savePage();
+        }
+    }
+
     /**
      * @param newRow the tuple that should be inserted
      * @return the position where the new row should be inserted based on clustering
@@ -161,6 +258,13 @@ public class Table implements Serializable {
                 pageNum_RowNum = pageMid + "_" + rowNum;
                 break;
             }
+        }
+
+        int pageNum = Integer.parseInt(pageNum_RowNum.split("_")[0]);
+        int rowNum = Integer.parseInt(pageNum_RowNum.split("_")[1]);
+
+        if (rowNum == 200) {
+            return (pageNum + 1) + "_0";
         }
 
         return pageNum_RowNum;
