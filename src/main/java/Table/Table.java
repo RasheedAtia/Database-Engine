@@ -1,20 +1,24 @@
+package Table;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Hashtable;
 import java.util.Vector;
 
+import com.github.davidmoten.bplustree.BPlusTree;
+
 public class Table implements Serializable {
-    String name;
+    public String name;
     private String clusteringKey;
 
-    private Hashtable<String, bplustree> colIdx;
+    private Hashtable<String, BPlusTree<?, ?>> colIdx;
     private Hashtable<String, String> htblColNameType;
 
     private Vector<Page> pages;
 
     public Table(String name, String clusteringKeyColumn, Hashtable<String, String> htblColNameType) {
         pages = new Vector<Page>();
-        colIdx = new Hashtable<String, bplustree>();
+        colIdx = new Hashtable<String, BPlusTree<?, ?>>();
 
         this.name = name;
         this.clusteringKey = clusteringKeyColumn;
@@ -37,11 +41,11 @@ public class Table implements Serializable {
         this.htblColNameType = htblColNameType;
     }
 
-    public Hashtable<String, bplustree> getColIdx() {
+    public Hashtable<String, BPlusTree<?, ?>> getColIdx() {
         return colIdx;
     }
 
-    public void setColIdx(Hashtable<String, bplustree> colIdx) {
+    public void setColIdx(Hashtable<String, BPlusTree<?, ?>> colIdx) {
         this.colIdx = colIdx;
     }
 
@@ -63,4 +67,5 @@ public class Table implements Serializable {
     public boolean isFull() {
         return (this.pages.size() == 0) || (this.pages.get(this.pages.size() - 1).isFull());
     }
+
 }
