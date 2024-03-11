@@ -2,6 +2,7 @@ package Table;
 
 import Exceptions.DBAppException;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -20,9 +21,26 @@ public class Page implements Serializable {
     public String name;
     private int maximumRowsCountInPage;
 
-    public Page(String name, Tuple tuple) {
+    /**
+     * Constructor for the Page class.
+     * Initializes the name of the page and empty tuple vector.
+     *
+     * @param name The name of the page
+     */
+    public Page(String name) {
         this.name = name;
         this.tuples = new Vector<Tuple>();
+    }
+
+    /**
+     * Constructor for the Page class.
+     * Initializes the name of the page and adds the first tuple to the page.
+     *
+     * @param name  The name of the page
+     * @param tuple The first tuple to be added to the page
+     */
+    public Page(String name, Tuple tuple) {
+        this(name);
         this.tuples.add(tuple);
         Properties prop = new Properties();
         try {
@@ -69,10 +87,23 @@ public class Page implements Serializable {
         return res.substring(0, res.length() - 1);
     }
 
+    /**
+     * Checks if the page is full.
+     * Currently, a page is considered full if it contains 200 tuples.
+     *
+     * @return true if the page is full, false otherwise
+     */
     public boolean isFull() {
         return tuples.size() == maximumRowsCountInPage;
     }
 
+    /**
+     * Adds a tuple to the page.
+     * Throws a DBAppException if the page is full.
+     *
+     * @param t The tuple to be added
+     * @throws DBAppException If the page is full
+     */
     public void addTuple(Tuple t) throws DBAppException {
         if (isFull()) {
             throw new DBAppException("Page is full");
@@ -80,43 +111,90 @@ public class Page implements Serializable {
         tuples.add(t);
     }
 
+    /**
+     * Removes a tuple from the page.
+     *
+     * @param t The tuple to be removed
+     */
     public void removeTuple(Tuple t) {
         // if page is empty after removing, throw exception
 
         tuples.remove(t);
     }
 
+    /**
+     * Updates a tuple in the page.
+     *
+     * @param oldRow The old tuple
+     * @param newRow The new tuple
+     */
     public void updateTuple(Tuple oldRow, Tuple newRow) {
         int index = tuples.indexOf(oldRow);
         tuples.set(index, newRow);
     }
 
-    public void savePage() throws IOException {
-        FileOutputStream fileOut = new FileOutputStream(this.name + ".class");
+    /**
+     * Saves the page to disk.
+     *
+     * @param tableName use table name to create a new directory to store table
+     *                  related pages in.
+     * @throws IOException If an I/O error occurs.
+     */
+    public void savePage(String tableName) throws IOException {
+
+        // Create the directory path with the table name
+        // Use File.separator for platform-independent path separator
+        String directoryPath = "Database-Engine\\src\\main\\java\\Table\\" + tableName + "\\";
+
+        // Create the directory if it doesn't exist
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs(); // Create all necessary directories in the path
+        }
+
+        // Build the full file path with table name directory and page name
+        String filePath = directoryPath + this.name + ".class";
+
+        // Open streams for writing
+        FileOutputStream fileOut = new FileOutputStream(filePath);
         ObjectOutputStream out = new ObjectOutputStream(fileOut);
+
+        // Write object and close streams
         out.writeObject(this);
         out.close();
         fileOut.close();
     }
 
     /**
-     * Main method for testing the Page class.
-     * Creates a page and adds two tuples to it, then prints the page.
-     * 
-     * @param args Command-line arguments (not used)
+     * Finds the appropriate row index for inserting a target row into the page
+     * based on the clustering key.
+     *
+     * @param targetRow          the target row to be inserted
+     * @param clusteringKeyIndex the index of the clustering key in the row
+     * @param clusteringKeyType  the data type of the clustering key
+     * @return the index of the row where the target row should be inserted
+     * @throws DBAppException if an error occurs during the insertion process
      */
-    public static void main(String[] args) {
-        Tuple v1 = new Tuple("Yousef", 20, "zdfg");
-        Tuple v2 = new Tuple("Seif", 19, "xcfhbf");
-        Page p = new Page("page1", v1);
+    public int findInsertionRow(Tuple targetRow, int clusteringKeyIndex, String clusteringKeyType)
+            throws DBAppException {
+        Object targetRowClusteringKey = targetRow.getFields()[clusteringKeyIndex];
+        int start = 0;
+        int end = this.tuples.size() - 1;
+        int row = 0;
 
-        p.tuples.add(v2);
-        System.out.print(p);
+        while (start <= end) {
+            int mid = start + (end - start) / 2;
+            Object currRow = this.tuples.get(mid).getFields()[clusteringKeyIndex];
 
-        try {
-            p.savePage();
-        } catch (IOException i) {
-            i.printStackTrace();
+            int comparison = Table.compareClusteringKey(targetRowClusteringKey, currRow, clusteringKeyType);
+            if (comparison < 0) {
+                end = mid - 1;
+                row = mid;
+            } else {
+                start = mid + 1;
+            }
         }
+
+        return row;
     }
 }
