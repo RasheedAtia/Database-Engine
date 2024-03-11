@@ -3,12 +3,10 @@ package Table;
 import Exceptions.DBAppException;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.Properties;
 import java.util.Vector;
 
 /**
@@ -19,7 +17,7 @@ public class Page implements Serializable {
     // Vector of tuples in the page
     private Vector<Tuple> tuples;
     public String name;
-    private int maximumRowsCountInPage;
+    public static int maximumRowsCountInPage;
 
     /**
      * Constructor for the Page class.
@@ -42,16 +40,6 @@ public class Page implements Serializable {
     public Page(String name, Tuple tuple) {
         this(name);
         this.tuples.add(tuple);
-        Properties prop = new Properties();
-        try {
-            prop.load(new FileInputStream(
-                    "C:\\Users\\tefah\\OneDrive\\Desktop\\Github\\Database-Engine\\src\\main\\java\\resources\\DBApp.config"));
-            String maxRowsCountInPageStr = prop.getProperty("MaximumRowsCountinPage");
-            maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
-            System.out.println("maximumRowsCountInPage: " + maximumRowsCountInPage);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     /**

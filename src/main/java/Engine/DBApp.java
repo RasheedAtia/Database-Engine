@@ -2,12 +2,14 @@ package Engine;
 
 /** * @author Wael Abouelsaadat */
 import java.util.Iterator;
+import java.util.Properties;
 
 import Exceptions.DBAppException;
 import Table.Page;
 import Table.Table;
 
 import java.util.Hashtable;
+import java.io.FileInputStream;
 import java.io.IOException;
 
 public class DBApp {
@@ -16,16 +18,22 @@ public class DBApp {
 
 	/**
 	 * Constructs a new DBApp.
+	 * Loads max number of rows in page from DBApp.config.
 	 * Initializes the tables hashtable and the metadata object.
 	 */
 	public DBApp() {
 		tables = new Hashtable<String, Table>();
 
 		try {
+			Properties prop = new Properties();
+			prop.load(new FileInputStream(
+					"Database-Engine\\src\\main\\java\\resources\\DBApp.config"));
+			String maxRowsCountInPageStr = prop.getProperty("MaximumRowsCountinPage");
+			Page.maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
+
 			metadata = new Metadata();
-			System.out.println("Metadata file created successfully!");
 		} catch (IOException e) {
-			System.out.println("An error occurred while creating the Metadata file.");
+			System.out.println("An error occurred while creating the Metadata file or reading DBApp.config.");
 			e.printStackTrace();
 		}
 	}

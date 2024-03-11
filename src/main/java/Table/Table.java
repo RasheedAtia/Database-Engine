@@ -166,7 +166,7 @@ public class Table implements Serializable {
             if (row == targetRowNum && row != 0)
                 newPage.addTuple(newRow);
 
-            if (row < Math.min(199, currPageTuples.size()))
+            if (row < Math.min(Page.maximumRowsCountInPage - 1, currPageTuples.size()))
                 newPage.addTuple(currPageTuples.get(row));
         }
 
@@ -219,7 +219,7 @@ public class Table implements Serializable {
             Tuple lastRowPrevPage = prevPageTuples.get(prevPageTuples.size() - 1);
             Page newPage = new Page("page " + pageNum, lastRowPrevPage);
 
-            for (int row = 0; row < Math.min(currPageTuples.size(), 200 - 1); row++) {
+            for (int row = 0; row < Math.min(currPageTuples.size(), Page.maximumRowsCountInPage - 1); row++) {
                 newPage.addTuple(currPageTuples.get(row));
             }
 
@@ -277,7 +277,7 @@ public class Table implements Serializable {
         int pageNum = Integer.parseInt(pageNum_RowNum.split("_")[0]);
         int rowNum = Integer.parseInt(pageNum_RowNum.split("_")[1]);
 
-        if (rowNum == 200) {
+        if (rowNum == Page.maximumRowsCountInPage) {
             return (pageNum + 1) + "_0";
         }
 
