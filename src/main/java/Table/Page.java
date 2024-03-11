@@ -2,6 +2,7 @@ package Table;
 
 import Exceptions.DBAppException;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -123,11 +124,30 @@ public class Page implements Serializable {
     /**
      * Saves the page to disk.
      *
-     * @throws IOException If an I/O error occurs
+     * @param tableName use table name to create a new directory to store table
+     *                  related pages in.
+     * @throws IOException If an I/O error occurs.
      */
-    public void savePage() throws IOException {
-        FileOutputStream fileOut = new FileOutputStream(this.name + ".class");
+    public void savePage(String tableName) throws IOException {
+
+        // Create the directory path with the table name
+        // Use File.separator for platform-independent path separator
+        String directoryPath = "Database-Engine\\src\\main\\java\\Table\\" + tableName + "\\";
+
+        // Create the directory if it doesn't exist
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs(); // Create all necessary directories in the path
+        }
+
+        // Build the full file path with table name directory and page name
+        String filePath = directoryPath + this.name + ".class";
+
+        // Open streams for writing
+        FileOutputStream fileOut = new FileOutputStream(filePath);
         ObjectOutputStream out = new ObjectOutputStream(fileOut);
+
+        // Write object and close streams
         out.writeObject(this);
         out.close();
         fileOut.close();

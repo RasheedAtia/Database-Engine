@@ -104,10 +104,9 @@ public class Table implements Serializable {
      * @param newRow Adds a new page to the table.
      */
     public void addPage(Tuple newRow) throws IOException {
-        String pageName = this.name + "_page_" + (this.pages.size() + 1);
-        Page page = new Page(pageName, newRow);
+        Page page = new Page("page " + this.pages.size(), newRow);
         pages.add(page);
-        page.savePage();
+        page.savePage(this.name);
     }
 
     /**
@@ -117,14 +116,18 @@ public class Table implements Serializable {
         return (this.pages.size() == 0) || (this.pages.get(this.pages.size() - 1).isFull());
     }
 
+    /**
+     * Inserts new row in correct position.
+     * Handle different cases of inserting in new page, or in existing page.
+     * 
+     * @param htblColNameValue contains mapping of column name to value to insert.
+     */
     public void insertRow(Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException, IOException {
         Tuple newRow = this.convertInputToTuple(htblColNameValue);
 
         if (this.pages.size() == 0) {
-            Page firstPage = new Page("page 0", newRow);
-            firstPage.savePage();
-            this.pages.add(firstPage);
+            this.addPage(newRow);
             return;
         }
 
@@ -140,9 +143,7 @@ public class Table implements Serializable {
 
             // insert new row in new page
             if (targetPageNum > this.pages.size() - 1) {
-                Page lastPage = new Page("page " + targetPageNum, newRow);
-                lastPage.savePage();
-                this.pages.add(lastPage);
+                this.addPage(newRow);
                 return;
             }
 
@@ -169,10 +170,16 @@ public class Table implements Serializable {
                 newPage.addTuple(currPageTuples.get(row));
         }
 
-        newPage.savePage();
+        newPage.savePage(this.name);
         this.pages.set(targetPageNum, newPage);
     }
 
+    /**
+     * converts form of input for easier insertion.
+     * 
+     * @param htblColNameValue maps column name to value of insertion.
+     * @return tuple containing values to insert.
+     */
     public Tuple convertInputToTuple(Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException {
         // fill tuple with values from input parameter htblColNameValue
@@ -197,6 +204,13 @@ public class Table implements Serializable {
         return newTuple;
     }
 
+    /**
+     * Shifts last row in each page (if full) to next page to free a row to insert
+     * into.
+     * 
+     * @param targetPageNum threshold to shift all rows from after this page till
+     *                      the end.
+     */
     private void shiftRowsDown(int targetPageNum) throws DBAppException, IOException {
         for (int pageNum = this.pages.size() - 1; pageNum > targetPageNum; pageNum--) {
             Vector<Tuple> prevPageTuples = this.pages.get(pageNum - 1).getTuples();
@@ -210,7 +224,7 @@ public class Table implements Serializable {
             }
 
             this.pages.set(pageNum, newPage);
-            newPage.savePage();
+            newPage.savePage(this.name);
         }
     }
 
