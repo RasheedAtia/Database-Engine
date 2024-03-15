@@ -305,4 +305,60 @@ public class Table implements Serializable {
         }
     }
 
+    public void updateRow(Hashtable<String, Object> htblColNameValue, String strClusteringKeyValue)
+            throws DBAppException, ClassNotFoundException, IOException {
+        // TODO Auto-generated method stub
+        String clusteringKey = this.getClusteringKey();
+        int clusteringKeyIndex = 0;
+        int pageStart = 0;
+        int pageEnd = this.pages.size() - 1;
+        int pageMid = 0;
+
+        while (pageStart <= pageEnd) {
+            pageMid = pageStart + (pageEnd - pageStart) / 2;
+
+            Vector<Tuple> currPageContent = this.pages.get(pageMid).getTuples();
+
+            Object firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex];
+            Object lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex];
+
+            String type = this.getHtblColNameType().get(clusteringKey).toLowerCase();
+            int comparison1 = compareClusteringKey(strClusteringKeyValue, firstRow, type);
+            int comparison2 = compareClusteringKey(strClusteringKeyValue, lastRow, type);
+
+            if (comparison1 < 0) {
+                pageEnd = pageMid - 1;
+            } else if (comparison2 >= 0) {
+                pageStart = pageMid + 1;
+            } else {
+                int begin = 0;
+                int end = currPageContent.size();
+                while (begin <= end) {
+                    int mid = begin + (end - begin) / 2;
+                    Object currRow = currPageContent.get(mid).getFields()[clusteringKeyIndex];
+                    int comparison = compareClusteringKey(strClusteringKeyValue, currRow, type);
+                    if (comparison == 0) {
+                        Tuple t = currPageContent.get(mid);
+                        for (String col : htblColNameValue.keySet()) {
+                            int colIndex = 0;
+                            for (String colName : this.htblColNameType.keySet()) {
+                                if (colName.equals(col)) {
+                                    break;
+                                }
+                                colIndex++;
+                            }
+                            t.getFields()[colIndex] = htblColNameValue.get(col);
+                        }
+                        break;
+                    } else if (comparison < 0) {
+                        end = mid - 1;
+                    } else {
+                        begin = mid + 1;
+                    }
+                }
+            }
+        }
+
+    }
+
 }

@@ -126,9 +126,9 @@ public class DBApp {
 	// strClusteringKeyValue is the value to look for to find the row to update.
 	public void updateTable(String strTableName,
 			String strClusteringKeyValue,
-			Hashtable<String, Object> htblColNameValue) throws DBAppException {
-
-		throw new DBAppException("not implemented yet");
+			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
+		Table table = tables.get(strTableName);
+		table.updateRow(htblColNameValue, strClusteringKeyValue);
 	}
 
 	// following method could be used to delete one or more rows.
