@@ -307,7 +307,6 @@ public class Table implements Serializable {
 
     public void updateRow(Hashtable<String, Object> htblColNameValue, String strClusteringKeyValue)
             throws DBAppException, ClassNotFoundException, IOException {
-        // TODO Auto-generated method stub
         String clusteringKey = this.getClusteringKey();
         int clusteringKeyIndex = 0;
         int pageStart = 0;
