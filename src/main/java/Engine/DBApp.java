@@ -117,6 +117,8 @@ public class DBApp {
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
 		Table table = tables.get(strTableName);
+
+		checkColTypesValidity(table.name, htblColNameValue);
 		table.insertRow(htblColNameValue);
 	}
 
@@ -145,6 +147,22 @@ public class DBApp {
 			String[] strarrOperators) throws DBAppException {
 
 		return null;
+	}
+
+	public boolean checkColTypesValidity(String tableName, Hashtable<String, Object> htblColNameValue)
+			throws IOException, DBAppException {
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(tableName);
+
+		for (String colName : htblColNameType.keySet()) {
+			String inputColType = htblColNameValue.get(colName).getClass().getName().toLowerCase();
+			String actualColType = htblColNameType.get(colName).toLowerCase();
+
+			if (!inputColType.equals(actualColType)) {
+				throw new DBAppException("invalid type for column " + colName);
+			}
+		}
+
+		return true;
 	}
 
 	public static void main(String[] args) {
