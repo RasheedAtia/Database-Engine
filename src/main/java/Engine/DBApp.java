@@ -120,6 +120,7 @@ public class DBApp {
 
 		checkColTypesValidity(table.name, htblColNameValue);
 		table.insertRow(htblColNameValue);
+		// table.saveTable();
 	}
 
 	// following method updates one row only
@@ -128,9 +129,10 @@ public class DBApp {
 	// strClusteringKeyValue is the value to look for to find the row to update.
 	public void updateTable(String strTableName,
 			String strClusteringKeyValue,
-			Hashtable<String, Object> htblColNameValue) throws DBAppException {
+			Hashtable<String, Object> htblColNameValue) throws DBAppException, IOException, ClassNotFoundException {
 
-		throw new DBAppException("not implemented yet");
+		Table table = tables.get(strTableName);
+		table.updateRow(htblColNameValue, strClusteringKeyValue);
 	}
 
 	// following method could be used to delete one or more rows.
@@ -149,7 +151,7 @@ public class DBApp {
 		return null;
 	}
 
-	public boolean checkColTypesValidity(String tableName, Hashtable<String, Object> htblColNameValue)
+	public void checkColTypesValidity(String tableName, Hashtable<String, Object> htblColNameValue)
 			throws IOException, DBAppException {
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(tableName);
 
@@ -161,8 +163,6 @@ public class DBApp {
 				throw new DBAppException("invalid type for column " + colName);
 			}
 		}
-
-		return true;
 	}
 
 	public static void main(String[] args) {
@@ -190,10 +190,10 @@ public class DBApp {
 			}
 
 			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
-			htblColNameValue.put("id", 500);
-			htblColNameValue.put("name", "a");
-			htblColNameValue.put("gpa", 0.0);
-			dbApp.insertIntoTable(strTableName, htblColNameValue);
+			htblColNameValue.put("name", "b");
+			htblColNameValue.put("gpa", 1.0);
+
+			dbApp.updateTable(strTableName, "401", htblColNameValue);
 
 			for (Page p : dbApp.tables.get("Student").getPages()) {
 				System.out.println(p);
@@ -244,5 +244,4 @@ public class DBApp {
 			exp.printStackTrace();
 		}
 	}
-
 }

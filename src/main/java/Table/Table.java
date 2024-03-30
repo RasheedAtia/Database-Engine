@@ -1,6 +1,9 @@
 package Table;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -235,16 +238,9 @@ public class Table implements Serializable {
      */
     public String getInsertionPos(Tuple newRow) throws DBAppException {
         String pageNum_RowNum = "";
-        int clusteringKeyIndex = 0;
+        int clusteringKeyIndex = getClusteringKeyIndex();
 
-        for (String col : this.htblColNameType.keySet()) {
-            if (col.equals(clusteringKey)) {
-                break;
-            }
-            clusteringKeyIndex++;
-        }
-
-        Object targetClusteringKey = newRow.getFields()[clusteringKeyIndex];
+        String targetClusteringKey = newRow.getFields()[clusteringKeyIndex] + "";
         int pageStart = 0;
         int pageEnd = this.pages.size() - 1;
         int pageMid = 0;
@@ -254,8 +250,8 @@ public class Table implements Serializable {
 
             Vector<Tuple> currPageContent = this.pages.get(pageMid).getTuples();
 
-            Object firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex];
-            Object lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex];
+            String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
+            String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
 
             String type = this.getHtblColNameType().get(clusteringKey).toLowerCase();
             int comparison1 = compareClusteringKey(targetClusteringKey, firstRow, type);
@@ -284,6 +280,18 @@ public class Table implements Serializable {
         return pageNum_RowNum;
     }
 
+    private int getClusteringKeyIndex() {
+        int clusteringKeyIndex = 0;
+        for (String col : this.htblColNameType.keySet()) {
+            if (col.equals(clusteringKey)) {
+                break;
+            }
+            clusteringKeyIndex++;
+        }
+
+        return clusteringKeyIndex;
+    }
+
     /**
      * @param targetKey         first clustering key in comparison.
      * @param currKey           second clustering key in comparison.
@@ -291,18 +299,76 @@ public class Table implements Serializable {
      * @return which key is larger (> 0 means targetKey is larger,
      *         < 0 means currKey is larger, = 0 means both keys are equal)
      */
-    public static int compareClusteringKey(Object targetKey, Object currKey, String clusteringKeyType)
+    public static int compareClusteringKey(String targetKey, String currKey, String clusteringKeyType)
             throws DBAppException {
         switch (clusteringKeyType) {
             case "java.lang.integer":
-                return (Integer) targetKey - (Integer) currKey;
+                return Integer.parseInt(targetKey) - Integer.parseInt(currKey);
             case "java.lang.double":
-                return Double.compare((Double) targetKey, (Double) currKey);
+                return Double.compare(Double.parseDouble(targetKey), Double.parseDouble(currKey));
             case "java.lang.string":
-                return ((String) targetKey).compareTo((String) currKey);
+                return targetKey.compareTo(currKey);
             default:
                 throw new DBAppException("Unsupported column type");
         }
+    }
+
+    public void updateRow(Hashtable<String, Object> htblColNameValue, String strClusteringKeyValue)
+            throws DBAppException, ClassNotFoundException, IOException {
+        String clusteringKey = this.getClusteringKey();
+        int clusteringKeyIndex = this.getClusteringKeyIndex();
+        int pageStart = 0;
+        int pageEnd = this.pages.size() - 1;
+        int pageMid = 0;
+
+        while (pageStart <= pageEnd) {
+            pageMid = pageStart + (pageEnd - pageStart) / 2;
+
+            Vector<Tuple> currPageContent = this.pages.get(pageMid).getTuples();
+
+            String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
+            String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
+
+            String type = this.getHtblColNameType().get(clusteringKey).toLowerCase();
+            int comparison1 = compareClusteringKey(strClusteringKeyValue, firstRow, type);
+            int comparison2 = compareClusteringKey(strClusteringKeyValue, lastRow, type);
+
+            if (comparison1 < 0) {
+                pageEnd = pageMid - 1;
+            } else if (comparison2 >= 0) {
+                pageStart = pageMid + 1;
+            } else {
+                int begin = 0;
+                int end = currPageContent.size();
+
+                while (begin <= end) {
+                    int mid = begin + (end - begin) / 2;
+                    String currRow = currPageContent.get(mid).getFields()[clusteringKeyIndex] + "";
+                    int comparison = compareClusteringKey(strClusteringKeyValue, currRow, type);
+
+                    if (comparison == 0) {
+                        Tuple t = currPageContent.get(mid);
+
+                        for (String col : htblColNameValue.keySet()) {
+                            int colIndex = 0;
+                            for (String colName : this.htblColNameType.keySet()) {
+                                if (colName.equals(col)) {
+                                    break;
+                                }
+                                colIndex++;
+                            }
+                            t.getFields()[colIndex] = htblColNameValue.get(col);
+                        }
+                        return;
+                    } else if (comparison < 0) {
+                        end = mid - 1;
+                    } else {
+                        begin = mid + 1;
+                    }
+                }
+            }
+        }
+
     }
 
 }
