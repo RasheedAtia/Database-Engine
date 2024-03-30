@@ -117,7 +117,10 @@ public class DBApp {
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
 		Table table = tables.get(strTableName);
+
+		checkColTypesValidity(table.name, htblColNameValue);
 		table.insertRow(htblColNameValue);
+		// table.saveTable();
 	}
 
 	// following method updates one row only
@@ -126,7 +129,8 @@ public class DBApp {
 	// strClusteringKeyValue is the value to look for to find the row to update.
 	public void updateTable(String strTableName,
 			String strClusteringKeyValue,
-			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
+			Hashtable<String, Object> htblColNameValue) throws DBAppException, IOException, ClassNotFoundException {
+
 		Table table = tables.get(strTableName);
 		table.updateRow(htblColNameValue, strClusteringKeyValue);
 	}
@@ -145,6 +149,20 @@ public class DBApp {
 			String[] strarrOperators) throws DBAppException {
 
 		return null;
+	}
+
+	public void checkColTypesValidity(String tableName, Hashtable<String, Object> htblColNameValue)
+			throws IOException, DBAppException {
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(tableName);
+
+		for (String colName : htblColNameType.keySet()) {
+			String inputColType = htblColNameValue.get(colName).getClass().getName().toLowerCase();
+			String actualColType = htblColNameType.get(colName).toLowerCase();
+
+			if (!inputColType.equals(actualColType)) {
+				throw new DBAppException("invalid type for column " + colName);
+			}
+		}
 	}
 
 	public static void main(String[] args) {
@@ -172,10 +190,10 @@ public class DBApp {
 			}
 
 			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
-			htblColNameValue.put("id", 500);
-			htblColNameValue.put("name", "a");
-			htblColNameValue.put("gpa", 0.0);
-			dbApp.insertIntoTable(strTableName, htblColNameValue);
+			htblColNameValue.put("name", "b");
+			htblColNameValue.put("gpa", 1.0);
+
+			dbApp.updateTable(strTableName, "401", htblColNameValue);
 
 			for (Page p : dbApp.tables.get("Student").getPages()) {
 				System.out.println(p);

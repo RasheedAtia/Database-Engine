@@ -165,14 +165,14 @@ public class Page implements Serializable {
      */
     public int findInsertionRow(Tuple targetRow, int clusteringKeyIndex, String clusteringKeyType)
             throws DBAppException {
-        Object targetRowClusteringKey = targetRow.getFields()[clusteringKeyIndex];
+        String targetRowClusteringKey = targetRow.getFields()[clusteringKeyIndex] + "";
         int start = 0;
         int end = this.tuples.size() - 1;
         int row = 0;
 
         while (start <= end) {
             int mid = start + (end - start) / 2;
-            Object currRow = this.tuples.get(mid).getFields()[clusteringKeyIndex];
+            String currRow = this.tuples.get(mid).getFields()[clusteringKeyIndex] + "";
 
             int comparison = Table.compareClusteringKey(targetRowClusteringKey, currRow, clusteringKeyType);
             if (comparison < 0) {
