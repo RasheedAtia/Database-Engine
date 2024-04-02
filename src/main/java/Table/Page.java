@@ -131,8 +131,7 @@ public class Page implements Serializable {
     public void savePage(String tableName) throws IOException {
 
         // Create the directory path with the table name
-        // Use File.separator for platform-independent path separator
-        String directoryPath = "Database-Engine\\src\\main\\java\\Table\\" + tableName + "\\";
+        String directoryPath = "src\\main\\java\\Table\\" + tableName + "\\";
 
         // Create the directory if it doesn't exist
         File directory = new File(directoryPath);

@@ -27,7 +27,7 @@ public class DBApp {
 		try {
 			Properties prop = new Properties();
 			prop.load(new FileInputStream(
-					"Database-Engine\\src\\main\\java\\resources\\DBApp.config"));
+					"src\\main\\java\\resources\\DBApp.config"));
 			String maxRowsCountInPageStr = prop.getProperty("MaximumRowsCountinPage");
 			Page.maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
 
@@ -120,7 +120,6 @@ public class DBApp {
 
 		checkColTypesValidity(table.name, htblColNameValue);
 		table.insertRow(htblColNameValue);
-		// table.saveTable();
 	}
 
 	// following method updates one row only
@@ -181,21 +180,23 @@ public class DBApp {
 			dbApp.createTable(strTableName, "id", htblColNameType);
 			dbApp.createIndex(strTableName, "gpa", "gpaIndex");
 
+			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 			for (int i = 0; i < 400; i++) {
-				Hashtable<String, Object> htblColNameValue = new Hashtable<>();
+				htblColNameValue.clear();
 				htblColNameValue.put("id", i);
 				htblColNameValue.put("name", "a");
 				htblColNameValue.put("gpa", 0.0);
 				dbApp.insertIntoTable(strTableName, htblColNameValue);
 			}
 
-			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
+			htblColNameValue.clear();
 			htblColNameValue.put("name", "b");
 			htblColNameValue.put("gpa", 1.0);
 
 			dbApp.updateTable(strTableName, "401", htblColNameValue);
 
-			for (Page p : dbApp.tables.get("Student").getPages()) {
+			for (int i = 0; i < dbApp.tables.get("Student").numOfPages; i++) {
+				Page p = dbApp.tables.get("Student").loadPage(i);
 				System.out.println(p);
 				System.out.println();
 			}

@@ -1,9 +1,8 @@
 package Table;
 
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -30,16 +29,13 @@ public class Table implements Serializable {
     // A hashtable mapping column names to their B+ tree indices
     private Hashtable<String, BPlusTree<?, ?>> colIdx;
 
-    // A vector of pages in the table
-    private Vector<Page> pages;
+    public int numOfPages = 0;
 
     /**
      * Constructs a new Table with the given name, clustering key, and column types.
      */
     public Table(String name, String clusteringKeyColumn, Hashtable<String, String> htblColNameType) {
-        pages = new Vector<Page>();
         colIdx = new Hashtable<String, BPlusTree<?, ?>>();
-
         this.name = name;
         this.clusteringKey = clusteringKeyColumn;
         this.htblColNameType = htblColNameType;
@@ -90,33 +86,22 @@ public class Table implements Serializable {
     }
 
     /**
-     * @return the vector of pages in the table.
-     */
-    public Vector<Page> getPages() {
-        return pages;
-    }
-
-    /**
-     * @param pages Sets the vector of pages in the table.
-     */
-    public void setPages(Vector<Page> pages) {
-        this.pages = pages;
-    }
-
-    /**
      * @param newRow Adds a new page to the table.
      */
     public void addPage(Tuple newRow) throws IOException {
-        Page page = new Page("page " + this.pages.size(), newRow);
-        pages.add(page);
+        Page page = new Page("page " + numOfPages++, newRow);
         page.savePage(this.name);
     }
 
-    /**
-     * @return true if the table is full, false otherwise.
-     */
-    public boolean isFull() {
-        return (this.pages.size() == 0) || (this.pages.get(this.pages.size() - 1).isFull());
+    public Page loadPage(int pageNum) throws IOException, ClassNotFoundException {
+        String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\page " + pageNum + ".class";
+        FileInputStream fileIn = new FileInputStream(relativePagePath);
+        ObjectInputStream objIn = new ObjectInputStream(fileIn);
+        Page p = (Page) objIn.readObject();
+
+        objIn.close();
+        fileIn.close();
+        return p;
     }
 
     /**
@@ -129,7 +114,7 @@ public class Table implements Serializable {
             throws DBAppException, ClassNotFoundException, IOException {
         Tuple newRow = this.convertInputToTuple(htblColNameValue);
 
-        if (this.pages.size() == 0) {
+        if (numOfPages == 0) {
             this.addPage(newRow);
             return;
         }
@@ -142,22 +127,23 @@ public class Table implements Serializable {
         int targetPageNum = Integer.parseInt(insertionPos[0]);
         int targetRowNum = Integer.parseInt(insertionPos[1]);
 
-        if ((this.pages.get(this.pages.size() - 1).isFull())) {
+        Page lastPage = loadPage(numOfPages - 1);
+        if (lastPage.isFull()) {
 
             // insert new row in new page
-            if (targetPageNum > this.pages.size() - 1) {
+            if (targetPageNum > numOfPages - 1) {
                 this.addPage(newRow);
                 return;
             }
 
-            Page newPage = new Page("page " + this.pages.size());
-            this.pages.add(newPage);
+            Page newPage = new Page("page " + numOfPages++);
+            newPage.savePage(this.name);
         }
 
         this.shiftRowsDown(targetPageNum);
 
-        Vector<Tuple> currPageTuples = this.pages.get(targetPageNum).getTuples();
-        Page newPage;
+        Page newPage, targetPage = loadPage(targetPageNum);
+        Vector<Tuple> currPageTuples = targetPage.getTuples();
 
         if (targetRowNum == 0) {
             newPage = new Page("page " + targetPageNum, newRow);
@@ -174,7 +160,6 @@ public class Table implements Serializable {
         }
 
         newPage.savePage(this.name);
-        this.pages.set(targetPageNum, newPage);
     }
 
     /**
@@ -214,10 +199,12 @@ public class Table implements Serializable {
      * @param targetPageNum threshold to shift all rows from after this page till
      *                      the end.
      */
-    private void shiftRowsDown(int targetPageNum) throws DBAppException, IOException {
-        for (int pageNum = this.pages.size() - 1; pageNum > targetPageNum; pageNum--) {
-            Vector<Tuple> prevPageTuples = this.pages.get(pageNum - 1).getTuples();
-            Vector<Tuple> currPageTuples = this.pages.get(pageNum).getTuples();
+    private void shiftRowsDown(int targetPageNum) throws DBAppException, IOException, ClassNotFoundException {
+        for (int pageNum = numOfPages - 1; pageNum > targetPageNum; pageNum--) {
+            Page prevPage = loadPage(pageNum - 1);
+            Page currPage = loadPage(pageNum);
+            Vector<Tuple> prevPageTuples = prevPage.getTuples();
+            Vector<Tuple> currPageTuples = currPage.getTuples();
 
             Tuple lastRowPrevPage = prevPageTuples.get(prevPageTuples.size() - 1);
             Page newPage = new Page("page " + pageNum, lastRowPrevPage);
@@ -226,7 +213,6 @@ public class Table implements Serializable {
                 newPage.addTuple(currPageTuples.get(row));
             }
 
-            this.pages.set(pageNum, newPage);
             newPage.savePage(this.name);
         }
     }
@@ -236,19 +222,20 @@ public class Table implements Serializable {
      * @return the position where the new row should be inserted based on clustering
      *         key column.
      */
-    public String getInsertionPos(Tuple newRow) throws DBAppException {
+    public String getInsertionPos(Tuple newRow) throws DBAppException, IOException, ClassNotFoundException {
         String pageNum_RowNum = "";
         int clusteringKeyIndex = getClusteringKeyIndex();
 
         String targetClusteringKey = newRow.getFields()[clusteringKeyIndex] + "";
         int pageStart = 0;
-        int pageEnd = this.pages.size() - 1;
+        int pageEnd = numOfPages - 1;
         int pageMid = 0;
 
         while (pageStart <= pageEnd) {
             pageMid = pageStart + (pageEnd - pageStart) / 2;
 
-            Vector<Tuple> currPageContent = this.pages.get(pageMid).getTuples();
+            Page currPage = loadPage(pageMid);
+            Vector<Tuple> currPageContent = currPage.getTuples();
 
             String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
             String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
@@ -262,9 +249,9 @@ public class Table implements Serializable {
                 pageNum_RowNum = pageMid + "_0";
             } else if (comparison2 >= 0) {
                 pageStart = pageMid + 1;
-                pageNum_RowNum = pageMid + "_" + this.pages.get(pageMid).getTuples().size();
+                pageNum_RowNum = pageMid + "_" + currPageContent.size();
             } else {
-                int rowNum = this.pages.get(pageMid).findInsertionRow(newRow, clusteringKeyIndex, type);
+                int rowNum = currPage.findInsertionRow(newRow, clusteringKeyIndex, type);
                 pageNum_RowNum = pageMid + "_" + rowNum;
                 break;
             }
@@ -318,13 +305,14 @@ public class Table implements Serializable {
         String clusteringKey = this.getClusteringKey();
         int clusteringKeyIndex = this.getClusteringKeyIndex();
         int pageStart = 0;
-        int pageEnd = this.pages.size() - 1;
+        int pageEnd = numOfPages - 1;
         int pageMid = 0;
 
         while (pageStart <= pageEnd) {
             pageMid = pageStart + (pageEnd - pageStart) / 2;
 
-            Vector<Tuple> currPageContent = this.pages.get(pageMid).getTuples();
+            Page currPage = loadPage(pageMid);
+            Vector<Tuple> currPageContent = currPage.getTuples();
 
             String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
             String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
@@ -359,6 +347,7 @@ public class Table implements Serializable {
                             }
                             t.getFields()[colIndex] = htblColNameValue.get(col);
                         }
+                        currPage.savePage(this.name);
                         return;
                     } else if (comparison < 0) {
                         end = mid - 1;
@@ -368,7 +357,5 @@ public class Table implements Serializable {
                 }
             }
         }
-
     }
-
 }
