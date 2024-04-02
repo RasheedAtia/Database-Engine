@@ -52,11 +52,11 @@ public class DBApp {
 			Hashtable<String, String> htblColNameType) throws DBAppException, IOException {
 
 		// create a new table object
-		Table t = new Table(strTableName, strClusteringKeyColumn, htblColNameType);
+		Table t = new Table(strTableName, strClusteringKeyColumn);
 		t.saveTable();
 
 		// save the table metadata
-		metadata.saveTable(t);
+		metadata.saveTable(t, htblColNameType);
 	}
 
 	/**
@@ -96,11 +96,10 @@ public class DBApp {
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
 		Table table = loadTable(strTableName);
-
-		checkColTypesValidity(table.name, htblColNameValue);
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
 
 		int prevNumOfPages = table.numOfPages;
-		table.insertRow(htblColNameValue);
+		table.insertRow(htblColNameType, htblColNameValue);
 
 		if (table.numOfPages != prevNumOfPages)
 			table.saveTable();
@@ -115,7 +114,9 @@ public class DBApp {
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, IOException, ClassNotFoundException {
 
 		Table table = loadTable(strTableName);
-		table.updateRow(htblColNameValue, strClusteringKeyValue);
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
+
+		table.updateRow(htblColNameType, htblColNameValue, strClusteringKeyValue);
 	}
 
 	// following method could be used to delete one or more rows.
@@ -143,20 +144,6 @@ public class DBApp {
 		obj.close();
 		fileIn.close();
 		return t;
-	}
-
-	private void checkColTypesValidity(String tableName, Hashtable<String, Object> htblColNameValue)
-			throws IOException, DBAppException {
-		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(tableName);
-
-		for (String colName : htblColNameType.keySet()) {
-			String inputColType = htblColNameValue.get(colName).getClass().getName().toLowerCase();
-			String actualColType = htblColNameType.get(colName).toLowerCase();
-
-			if (!inputColType.equals(actualColType)) {
-				throw new DBAppException("invalid type for column " + colName);
-			}
-		}
 	}
 
 	public static void main(String[] args) {

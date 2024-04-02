@@ -26,9 +26,6 @@ public class Table implements Serializable {
     // The column name of the clustering key
     private String clusteringKey;
 
-    // A hashtable mapping column names to their types
-    private Hashtable<String, String> htblColNameType;
-
     // A hashtable mapping column names to their B+ tree indices
     private Hashtable<String, BPlusTree<?, ?>> colIdx;
 
@@ -37,11 +34,10 @@ public class Table implements Serializable {
     /**
      * Constructs a new Table with the given name, clustering key, and column types.
      */
-    public Table(String name, String clusteringKeyColumn, Hashtable<String, String> htblColNameType) {
+    public Table(String name, String clusteringKeyColumn) {
         colIdx = new Hashtable<String, BPlusTree<?, ?>>();
         this.name = name;
         this.clusteringKey = clusteringKeyColumn;
-        this.htblColNameType = htblColNameType;
     }
 
     /**
@@ -56,21 +52,6 @@ public class Table implements Serializable {
      */
     public void setClusteringKey(String clusteringKey) {
         this.clusteringKey = clusteringKey;
-    }
-
-    /**
-     * @return the hashtable mapping column names to their types.
-     */
-    public Hashtable<String, String> getHtblColNameType() {
-        return htblColNameType;
-    }
-
-    /**
-     * @param htblColNameType Sets the hashtable mapping column names to their
-     *                        types.
-     */
-    public void setHtblColNameType(Hashtable<String, String> htblColNameType) {
-        this.htblColNameType = htblColNameType;
     }
 
     /**
@@ -136,19 +117,16 @@ public class Table implements Serializable {
      * 
      * @param htblColNameValue contains mapping of column name to value to insert.
      */
-    public void insertRow(Hashtable<String, Object> htblColNameValue)
+    public void insertRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException, IOException {
-        Tuple newRow = this.convertInputToTuple(htblColNameValue);
+        Tuple newRow = this.convertInputToTuple(htblColNameType, htblColNameValue);
 
         if (numOfPages == 0) {
             this.addPage(newRow);
             return;
         }
 
-        String[] insertionPos = this.getInsertionPos(newRow).split("_");
-
-        if (insertionPos.length != 2)
-            throw new DBAppException("Error in finding insertion position");
+        String[] insertionPos = this.getInsertionPos(newRow, htblColNameType).split("_");
 
         int targetPageNum = Integer.parseInt(insertionPos[0]);
         int targetRowNum = Integer.parseInt(insertionPos[1]);
@@ -194,21 +172,18 @@ public class Table implements Serializable {
      * @param htblColNameValue maps column name to value of insertion.
      * @return tuple containing values to insert.
      */
-    public Tuple convertInputToTuple(Hashtable<String, Object> htblColNameValue)
-            throws DBAppException, ClassNotFoundException {
+    public Tuple convertInputToTuple(Hashtable<String, String> htblColNameType,
+            Hashtable<String, Object> htblColNameValue)
+            throws DBAppException, IOException, ClassNotFoundException {
+
         // fill tuple with values from input parameter htblColNameValue
         Tuple newTuple = new Tuple();
 
-        Object[] newFields = new Object[this.getHtblColNameType().size()];
+        Object[] newFields = new Object[htblColNameType.size()];
         int pos = 0;
 
-        for (String col : this.getHtblColNameType().keySet()) {
-            Object existingColValueType = Class.forName(this.getHtblColNameType().get(col));
-            Object newColValueType = htblColNameValue.get(col).getClass();
-
-            if (!existingColValueType.equals(newColValueType)) {
-                throw new DBAppException("Invalid insert type for column " + col);
-            }
+        for (String col : htblColNameValue.keySet()) {
+            checkColTypeValidity(htblColNameValue, htblColNameType, col);
 
             newFields[pos++] = htblColNameValue.get(col);
         }
@@ -216,6 +191,18 @@ public class Table implements Serializable {
         newTuple.setFields(newFields);
 
         return newTuple;
+    }
+
+    private void checkColTypeValidity(Hashtable<String, Object> htblColNameValue,
+            Hashtable<String, String> htblColNameType, String col)
+            throws ClassNotFoundException, DBAppException {
+
+        Object existingColValueType = Class.forName(htblColNameType.get(col));
+        Object newColValueType = htblColNameValue.get(col).getClass();
+
+        if (!existingColValueType.equals(newColValueType)) {
+            throw new DBAppException("Invalid insert type for column " + col);
+        }
     }
 
     /**
@@ -248,9 +235,10 @@ public class Table implements Serializable {
      * @return the position where the new row should be inserted based on clustering
      *         key column.
      */
-    public String getInsertionPos(Tuple newRow) throws DBAppException, IOException, ClassNotFoundException {
+    public String getInsertionPos(Tuple newRow, Hashtable<String, String> htblColNameType)
+            throws DBAppException, IOException, ClassNotFoundException {
         String pageNum_RowNum = "";
-        int clusteringKeyIndex = getClusteringKeyIndex();
+        int clusteringKeyIndex = getClusteringKeyIndex(htblColNameType);
 
         String targetClusteringKey = newRow.getFields()[clusteringKeyIndex] + "";
         int pageStart = 0;
@@ -266,7 +254,7 @@ public class Table implements Serializable {
             String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
             String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
 
-            String type = this.getHtblColNameType().get(clusteringKey).toLowerCase();
+            String type = htblColNameType.get(clusteringKey).toLowerCase();
             int comparison1 = compareClusteringKey(targetClusteringKey, firstRow, type);
             int comparison2 = compareClusteringKey(targetClusteringKey, lastRow, type);
 
@@ -293,9 +281,9 @@ public class Table implements Serializable {
         return pageNum_RowNum;
     }
 
-    private int getClusteringKeyIndex() {
+    private int getClusteringKeyIndex(Hashtable<String, String> htblColNameType) {
         int clusteringKeyIndex = 0;
-        for (String col : this.htblColNameType.keySet()) {
+        for (String col : htblColNameType.keySet()) {
             if (col.equals(clusteringKey)) {
                 break;
             }
@@ -326,10 +314,12 @@ public class Table implements Serializable {
         }
     }
 
-    public void updateRow(Hashtable<String, Object> htblColNameValue, String strClusteringKeyValue)
+    public void updateRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue,
+            String strClusteringKeyValue)
             throws DBAppException, ClassNotFoundException, IOException {
+
         String clusteringKey = this.getClusteringKey();
-        int clusteringKeyIndex = this.getClusteringKeyIndex();
+        int clusteringKeyIndex = this.getClusteringKeyIndex(htblColNameType);
         int pageStart = 0;
         int pageEnd = numOfPages - 1;
         int pageMid = 0;
@@ -343,7 +333,7 @@ public class Table implements Serializable {
             String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
             String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
 
-            String type = this.getHtblColNameType().get(clusteringKey).toLowerCase();
+            String type = htblColNameType.get(clusteringKey).toLowerCase();
             int comparison1 = compareClusteringKey(strClusteringKeyValue, firstRow, type);
             int comparison2 = compareClusteringKey(strClusteringKeyValue, lastRow, type);
 
@@ -365,7 +355,7 @@ public class Table implements Serializable {
 
                         for (String col : htblColNameValue.keySet()) {
                             int colIndex = 0;
-                            for (String colName : this.htblColNameType.keySet()) {
+                            for (String colName : htblColNameType.keySet()) {
                                 if (colName.equals(col)) {
                                     break;
                                 }
