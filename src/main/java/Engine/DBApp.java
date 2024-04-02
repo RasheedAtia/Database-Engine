@@ -28,7 +28,7 @@ public class DBApp {
 		String maxRowsCountInPageStr = prop.getProperty("MaximumRowsCountinPage");
 		Page.maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
 
-		metadata = new Metadata();
+		metadata = Metadata.getInstance();
 	}
 
 	/**

@@ -13,13 +13,18 @@ import java.util.List;
 
 public class Metadata {
     private String fileName = "metadata.csv";
+    private static Metadata metadataInstance;
 
-    public Metadata() throws IOException {
-        // Create FileWriter object with the file path
-        FileWriter writer = new FileWriter(fileName);
+    private Metadata() {
 
-        // Close the writer
-        writer.close();
+    }
+
+    public static Metadata getInstance() {
+        if (metadataInstance == null) {
+            return new Metadata();
+        }
+
+        return metadataInstance;
     }
 
     /**
