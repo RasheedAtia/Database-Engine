@@ -1,8 +1,11 @@
 package Table;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -102,6 +105,29 @@ public class Table implements Serializable {
         objIn.close();
         fileIn.close();
         return p;
+    }
+
+    public void saveTable() throws IOException {
+        // Create the directory path with the table name
+        String directoryPath = "src\\main\\java\\Table\\" + this.name + "\\";
+
+        // Create the directory if it doesn't exist
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs(); // Create all necessary directories in the path
+        }
+
+        // Build the full file path with table name directory
+        String filePath = directoryPath + this.name + ".class";
+
+        // Open streams for writing
+        FileOutputStream fileOut = new FileOutputStream(filePath);
+        ObjectOutputStream out = new ObjectOutputStream(fileOut);
+
+        // Write object and close streams
+        out.writeObject(this);
+        out.close();
+        fileOut.close();
     }
 
     /**
