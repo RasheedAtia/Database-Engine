@@ -13,13 +13,18 @@ import java.util.List;
 
 public class Metadata {
     private String fileName = "metadata.csv";
+    private static Metadata metadataInstance;
 
-    public Metadata() throws IOException {
-        // Create FileWriter object with the file path
-        FileWriter writer = new FileWriter(fileName);
+    private Metadata() throws IOException {
 
-        // Close the writer
-        writer.close();
+    }
+
+    public static Metadata getInstance() throws IOException {
+        if (metadataInstance == null) {
+            return new Metadata();
+        }
+
+        return metadataInstance;
     }
 
     /**
@@ -28,12 +33,12 @@ public class Metadata {
      * @param table the table to save
      * @throws IOException if an I/O error occurs while writing to the file
      */
-    public void saveTable(Table table) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true));
+    public void saveTable(Table table, Hashtable<String, String> htblColNameType) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
 
         // Write each column data to the metadata file
-        for (String key : table.getHtblColNameType().keySet()) {
-            writer.write(table.name + "," + key + "," + table.getHtblColNameType().get(key) + "," +
+        for (String key : htblColNameType.keySet()) {
+            writer.write(table.name + "," + key + "," + htblColNameType.get(key) + "," +
                     (key == table.getClusteringKey()) + ",null,null\n");
         }
 

@@ -11,9 +11,9 @@ import Table.Table;
 import java.util.Hashtable;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 
 public class DBApp {
-	private Hashtable<String, Table> tables;
 	private Metadata metadata;
 
 	/**
@@ -21,21 +21,14 @@ public class DBApp {
 	 * Loads max number of rows in page from DBApp.config.
 	 * Initializes the tables hashtable and the metadata object.
 	 */
-	public DBApp() {
-		tables = new Hashtable<String, Table>();
+	public DBApp() throws IOException {
+		Properties prop = new Properties();
+		prop.load(new FileInputStream(
+				"src\\main\\java\\resources\\DBApp.config"));
+		String maxRowsCountInPageStr = prop.getProperty("MaximumRowsCountinPage");
+		Page.maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
 
-		try {
-			Properties prop = new Properties();
-			prop.load(new FileInputStream(
-					"Database-Engine\\src\\main\\java\\resources\\DBApp.config"));
-			String maxRowsCountInPageStr = prop.getProperty("MaximumRowsCountinPage");
-			Page.maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
-
-			metadata = new Metadata();
-		} catch (IOException e) {
-			System.out.println("An error occurred while creating the Metadata file or reading DBApp.config.");
-			e.printStackTrace();
-		}
+		metadata = Metadata.getInstance();
 	}
 
 	/**
@@ -56,19 +49,14 @@ public class DBApp {
 	 */
 	public void createTable(String strTableName,
 			String strClusteringKeyColumn,
-			Hashtable<String, String> htblColNameType) throws DBAppException {
+			Hashtable<String, String> htblColNameType) throws DBAppException, IOException {
 
 		// create a new table object
-		Table t = new Table(strTableName, strClusteringKeyColumn, htblColNameType);
-		tables.put(strTableName, t);
+		Table t = new Table(strTableName, strClusteringKeyColumn);
+		t.saveTable();
 
-		// save the metadata
-		try {
-			metadata.saveTable(t);
-			System.out.println("Table added to Metadata file successfully!");
-		} catch (IOException e) {
-			System.out.println("An error occurred while saving the table to Metadata file.");
-		}
+		// save the table metadata
+		metadata.saveTable(t, htblColNameType);
 	}
 
 	/**
@@ -82,21 +70,12 @@ public class DBApp {
 	 */
 	public void createIndex(String strTableName,
 			String strColName,
-			String strIndexName) throws DBAppException {
+			String strIndexName) throws DBAppException, IOException, ClassNotFoundException {
 
 		// get table to insert index into
-		Table t = tables.get(strTableName);
+		Table t = loadTable(strTableName);
 
-		// get the column type
-		String colType = t.getHtblColNameType().get(strColName);
-
-		try {
-			metadata.saveIndex(strTableName, strColName, strIndexName);
-			System.out.println("Index added to Metadata file successfully!");
-		} catch (IOException e) {
-			System.out.println("An error occurred while saving the Index to Metadata file.");
-			e.printStackTrace();
-		}
+		metadata.saveIndex(strTableName, strColName, strIndexName);
 	}
 
 	/**
@@ -116,11 +95,14 @@ public class DBApp {
 	public void insertIntoTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
-		Table table = tables.get(strTableName);
+		Table table = loadTable(strTableName);
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
 
-		checkColTypesValidity(table.name, htblColNameValue);
-		table.insertRow(htblColNameValue);
-		// table.saveTable();
+		int prevNumOfPages = table.numOfPages;
+		table.insertRow(htblColNameType, htblColNameValue);
+
+		if (table.numOfPages != prevNumOfPages)
+			table.saveTable();
 	}
 
 	// following method updates one row only
@@ -131,8 +113,10 @@ public class DBApp {
 			String strClusteringKeyValue,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, IOException, ClassNotFoundException {
 
-		Table table = tables.get(strTableName);
-		table.updateRow(htblColNameValue, strClusteringKeyValue);
+		Table table = loadTable(strTableName);
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
+
+		table.updateRow(htblColNameType, htblColNameValue, strClusteringKeyValue);
 	}
 
 	// following method could be used to delete one or more rows.
@@ -151,18 +135,15 @@ public class DBApp {
 		return null;
 	}
 
-	public void checkColTypesValidity(String tableName, Hashtable<String, Object> htblColNameValue)
-			throws IOException, DBAppException {
-		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(tableName);
+	private Table loadTable(String tableName) throws IOException, ClassNotFoundException {
+		String tableDirectory = "src\\main\\java\\Table\\" + tableName + "\\" + tableName + ".class";
+		FileInputStream fileIn = new FileInputStream(tableDirectory);
+		ObjectInputStream obj = new ObjectInputStream(fileIn);
+		Table t = (Table) obj.readObject();
 
-		for (String colName : htblColNameType.keySet()) {
-			String inputColType = htblColNameValue.get(colName).getClass().getName().toLowerCase();
-			String actualColType = htblColNameType.get(colName).toLowerCase();
-
-			if (!inputColType.equals(actualColType)) {
-				throw new DBAppException("invalid type for column " + colName);
-			}
-		}
+		obj.close();
+		fileIn.close();
+		return t;
 	}
 
 	public static void main(String[] args) {
@@ -181,21 +162,24 @@ public class DBApp {
 			dbApp.createTable(strTableName, "id", htblColNameType);
 			dbApp.createIndex(strTableName, "gpa", "gpaIndex");
 
+			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 			for (int i = 0; i < 400; i++) {
-				Hashtable<String, Object> htblColNameValue = new Hashtable<>();
+				htblColNameValue.clear();
 				htblColNameValue.put("id", i);
 				htblColNameValue.put("name", "a");
 				htblColNameValue.put("gpa", 0.0);
 				dbApp.insertIntoTable(strTableName, htblColNameValue);
 			}
 
-			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
+			htblColNameValue.clear();
 			htblColNameValue.put("name", "b");
 			htblColNameValue.put("gpa", 1.0);
 
 			dbApp.updateTable(strTableName, "401", htblColNameValue);
 
-			for (Page p : dbApp.tables.get("Student").getPages()) {
+			Table testTable = dbApp.loadTable(strTableName);
+			for (int i = 0; i < testTable.numOfPages; i++) {
+				Page p = testTable.loadPage(i);
 				System.out.println(p);
 				System.out.println();
 			}
