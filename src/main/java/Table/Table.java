@@ -70,13 +70,28 @@ public class Table implements Serializable {
     }
 
     /**
-     * @param newRow Adds a new page to the table.
+     * Adds a new page to the table with the given tuple as the first row.
+     * The page is saved with a unique name based on the number of pages in the
+     * table.
+     *
+     * @param newRow the tuple to be added as the first row of the new page
+     * @throws IOException if an I/O error occurs while saving the page
      */
     public void addPage(Tuple newRow) throws IOException {
         Page page = new Page("page " + numOfPages++, newRow);
         page.savePage(this.name);
     }
 
+    /**
+     * Deserializes a specific page from the table.
+     *
+     * @param pageNum the page number to load
+     * @return the deserialized page
+     * @throws IOException            if an I/O error occurs while reading the page
+     *                                file
+     * @throws ClassNotFoundException if the class of a serialized object cannot be
+     *                                found
+     */
     public Page loadPage(int pageNum) throws IOException, ClassNotFoundException {
         String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\page " + pageNum + ".class";
         FileInputStream fileIn = new FileInputStream(relativePagePath);
@@ -88,6 +103,11 @@ public class Table implements Serializable {
         return p;
     }
 
+    /**
+     * Saves/Serializes the table to a file.
+     * 
+     * @throws IOException if an I/O error occurs while saving the table.
+     */
     public void saveTable() throws IOException {
         // Create the directory path with the table name
         String directoryPath = "src\\main\\java\\Table\\" + this.name + "\\";
@@ -115,7 +135,16 @@ public class Table implements Serializable {
      * Inserts new row in correct position.
      * Handle different cases of inserting in new page, or in existing page.
      * 
-     * @param htblColNameValue contains mapping of column name to value to insert.
+     * @param htblColNameType  a Hashtable representing the column names and their
+     *                         corresponding data types.
+     * @param htblColNameValue a Hashtable representing the column names and their
+     *                         corresponding values for the new row.
+     * @throws DBAppException         if an error occurs while performing the
+     *                                database operation.
+     * @throws ClassNotFoundException if the specified class cannot be found during
+     *                                serialization/deserialization of a page.
+     * @throws IOException            if an I/O error occurs during
+     *                                serialization/deserialization of a page.
      */
     public void insertRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException, IOException {
@@ -132,47 +161,30 @@ public class Table implements Serializable {
         int targetRowNum = Integer.parseInt(insertionPos[1]);
 
         Page lastPage = loadPage(numOfPages - 1);
-        if (lastPage.isFull()) {
-
+        if (lastPage.isFull() && targetPageNum > numOfPages - 1) {
             // insert new row in new page
-            if (targetPageNum > numOfPages - 1) {
-                this.addPage(newRow);
-                return;
-            }
-
-            Page newPage = new Page("page " + numOfPages++);
-            newPage.savePage(this.name);
+            this.addPage(newRow);
+            return;
         }
 
-        this.shiftRowsDown(targetPageNum);
-
-        Page newPage, targetPage = loadPage(targetPageNum);
-        Vector<Tuple> currPageTuples = targetPage.getTuples();
-
-        if (targetRowNum == 0) {
-            newPage = new Page("page " + targetPageNum, newRow);
-        } else {
-            newPage = new Page("page " + targetPageNum);
+        Page targetPage = loadPage(targetPageNum);
+        if (targetRowNum >= targetPage.getTuples().size()) {
+            targetPage.addTuple(newRow);
+            targetPage.savePage(this.name);
+            return;
         }
 
-        for (int row = 0; row <= currPageTuples.size(); row++) {
-            if (row == targetRowNum && row != 0)
-                newPage.addTuple(newRow);
-
-            if (row < Math.min(Page.maximumRowsCountInPage - 1, currPageTuples.size()))
-                newPage.addTuple(currPageTuples.get(row));
-        }
-
-        newPage.savePage(this.name);
+        this.shiftRowsDownAndInsert(targetPageNum, targetRowNum, newRow);
     }
 
     /**
      * converts form of input for easier insertion.
      * 
+     * @param htblColNameType  maps column name to its data type.
      * @param htblColNameValue maps column name to value of insertion.
      * @return tuple containing values to insert.
      */
-    public Tuple convertInputToTuple(Hashtable<String, String> htblColNameType,
+    private Tuple convertInputToTuple(Hashtable<String, String> htblColNameType,
             Hashtable<String, Object> htblColNameValue)
             throws DBAppException, IOException, ClassNotFoundException {
 
@@ -193,6 +205,21 @@ public class Table implements Serializable {
         return newTuple;
     }
 
+    /**
+     * Checks the validity of the column type for a given column in the table.
+     * Compares the existing column type with the type of the new value to be
+     * inserted.
+     * 
+     * @param htblColNameValue a Hashtable representing the column names and their
+     *                         corresponding values
+     * @param htblColNameType  a Hashtable representing the column names and their
+     *                         corresponding types
+     * @param col              the name of the column to check the type validity for
+     * @throws ClassNotFoundException if the class for the existing column type
+     *                                cannot be found
+     * @throws DBAppException         if the type of the new value does not match
+     *                                the existing column type
+     */
     private void checkColTypeValidity(Hashtable<String, Object> htblColNameValue,
             Hashtable<String, String> htblColNameType, String col)
             throws ClassNotFoundException, DBAppException {
@@ -206,36 +233,73 @@ public class Table implements Serializable {
     }
 
     /**
-     * Shifts last row in each page (if full) to next page to free a row to insert
-     * into.
+     * Shifts the rows down in the target page and inserts a new tuple at the
+     * specified position.
      * 
-     * @param targetPageNum threshold to shift all rows from after this page till
-     *                      the end.
+     * @param targetPageNum The page number of the target page.
+     * @param targetRowNum  The row number in the target page where the new tuple
+     *                      should be inserted.
+     * @param newRow        The new tuple to be inserted.
+     * @throws DBAppException         If adding a tuple in a full page.
+     * @throws IOException            If an I/O error occurs.
+     * @throws ClassNotFoundException If the class of a serialized object cannot be
+     *                                found.
      */
-    private void shiftRowsDown(int targetPageNum) throws DBAppException, IOException, ClassNotFoundException {
-        for (int pageNum = numOfPages - 1; pageNum > targetPageNum; pageNum--) {
-            Page prevPage = loadPage(pageNum - 1);
+    private void shiftRowsDownAndInsert(int targetPageNum, int targetRowNum, Tuple newRow)
+            throws DBAppException, IOException, ClassNotFoundException {
+        Page targetPage = loadPage(targetPageNum);
+        Tuple curr, prev = targetPage.getTuples().get(targetRowNum);
+        targetPage.getTuples().set(targetRowNum, newRow);
+
+        for (int row = targetRowNum + 1; row < targetPage.getTuples().size(); row++) {
+            curr = targetPage.getTuples().get(row);
+            targetPage.getTuples().set(row, prev);
+            prev = curr;
+        }
+
+        if (targetPage.getTuples().size() < Page.maximumRowsCountInPage) {
+            targetPage.addTuple(prev);
+            targetPage.savePage(this.name);
+            return;
+        }
+
+        targetPage.savePage(this.name);
+
+        for (int pageNum = targetPageNum + 1; pageNum < numOfPages; pageNum++) {
             Page currPage = loadPage(pageNum);
-            Vector<Tuple> prevPageTuples = prevPage.getTuples();
-            Vector<Tuple> currPageTuples = currPage.getTuples();
 
-            Tuple lastRowPrevPage = prevPageTuples.get(prevPageTuples.size() - 1);
-            Page newPage = new Page("page " + pageNum, lastRowPrevPage);
-
-            for (int row = 0; row < Math.min(currPageTuples.size(), Page.maximumRowsCountInPage - 1); row++) {
-                newPage.addTuple(currPageTuples.get(row));
+            for (int row = 0; row < currPage.getTuples().size(); row++) {
+                curr = currPage.getTuples().get(row);
+                currPage.getTuples().set(row, prev);
+                prev = curr;
             }
 
-            newPage.savePage(this.name);
+            if (currPage.getTuples().size() < Page.maximumRowsCountInPage) {
+                currPage.addTuple(prev);
+                currPage.savePage(this.name);
+                return;
+            }
+
+            currPage.savePage(this.name);
         }
+
+        this.addPage(prev);
     }
 
     /**
-     * @param newRow the tuple that should be inserted
-     * @return the position where the new row should be inserted based on clustering
-     *         key column.
+     * Returns the insertion position of a new row in the table.
+     * 
+     * @param newRow          the new row to be inserted
+     * @param htblColNameType a hashtable containing the column names and their
+     *                        corresponding types
+     * @return the insertion position in the format "pageNum_rowNum"
+     * @throws DBAppException         if an error occurs in inserting a row
+     * @throws IOException            if an I/O error occurs while reading or
+     *                                writing data
+     * @throws ClassNotFoundException if the specified class cannot be found during
+     *                                deserialization
      */
-    public String getInsertionPos(Tuple newRow, Hashtable<String, String> htblColNameType)
+    private String getInsertionPos(Tuple newRow, Hashtable<String, String> htblColNameType)
             throws DBAppException, IOException, ClassNotFoundException {
         String pageNum_RowNum = "";
         int clusteringKeyIndex = getClusteringKeyIndex(htblColNameType);
@@ -281,6 +345,12 @@ public class Table implements Serializable {
         return pageNum_RowNum;
     }
 
+    /**
+     * Returns the index of the clustering key in the given hashtable.
+     *
+     * @param htblColNameType a hashtable that maps column names to their data types
+     * @return the index of the clustering key in the hashtable
+     */
     private int getClusteringKeyIndex(Hashtable<String, String> htblColNameType) {
         int clusteringKeyIndex = 0;
         for (String col : htblColNameType.keySet()) {
@@ -300,8 +370,7 @@ public class Table implements Serializable {
      * @return which key is larger (> 0 means targetKey is larger,
      *         < 0 means currKey is larger, = 0 means both keys are equal)
      */
-    public static int compareClusteringKey(String targetKey, String currKey, String clusteringKeyType)
-            throws DBAppException {
+    private static int compareClusteringKey(String targetKey, String currKey, String clusteringKeyType) {
         switch (clusteringKeyType) {
             case "java.lang.integer":
                 return Integer.parseInt(targetKey) - Integer.parseInt(currKey);
@@ -310,10 +379,26 @@ public class Table implements Serializable {
             case "java.lang.string":
                 return targetKey.compareTo(currKey);
             default:
-                throw new DBAppException("Unsupported column type");
+                return 0;
         }
     }
 
+    /**
+     * Updates a row in the table with the specified column name-value pairs, based
+     * on the given clustering key value.
+     *
+     * @param htblColNameType       a Hashtable containing the column names and
+     *                              their corresponding data types
+     * @param htblColNameValue      a Hashtable containing the column names and
+     *                              their new values
+     * @param strClusteringKeyValue the value of the clustering key for the row to
+     *                              be updated
+     * @throws DBAppException         if an error occurs during the update operation
+     * @throws ClassNotFoundException if the required class is not found during
+     *                                deserializing
+     * @throws IOException            if an I/O error occurs during deserializing a
+     *                                page
+     */
     public void updateRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue,
             String strClusteringKeyValue)
             throws DBAppException, ClassNotFoundException, IOException {
@@ -339,7 +424,7 @@ public class Table implements Serializable {
 
             if (comparison1 < 0) {
                 pageEnd = pageMid - 1;
-            } else if (comparison2 >= 0) {
+            } else if (comparison2 > 0) {
                 pageStart = pageMid + 1;
             } else {
                 int begin = 0;
