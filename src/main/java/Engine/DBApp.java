@@ -127,21 +127,7 @@ public class DBApp {
 	public void deleteFromTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException {
 		
-		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
-		bplustree tree = new bplustree();
-		Table t = tables.get(strTableName);
-		for (String col : htblColNameValue.keySet()) {
-			tree = t.getColIdx().get(col);
-			if (tree != null) {
-				tree.delete(htblColNameValue.get(col));
-			}
-			else{
-				throw new DBAppException("not implemented yet");
-			}
-		}
-		Page p = t.loadPage(0);
-		Tuple s = new Tuple(htblColNameValue);
-		p.removeTuple(s);
+	
 		throw new DBAppException("not implemented yet");
 	}
 
