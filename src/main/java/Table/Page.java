@@ -98,13 +98,21 @@ public class Page implements Serializable {
         tuples.add(t);
     }
 
+    public boolean isEmpty() {
+        return tuples.size() == 0;
+    }
+
     /**
      * Removes a tuple from the page.
      *
      * @param t The tuple to be removed
+     * @throws DBAppException 
      */
-    public void removeTuple(Tuple t) {
+    public void removeTuple(Tuple t) throws DBAppException {
         // if page is empty after removing, throw exception
+        if(isEmpty()){
+            throw new DBAppException("Page is empty");
+        }
 
         tuples.remove(t);
     }
