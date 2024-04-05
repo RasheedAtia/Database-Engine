@@ -6,16 +6,16 @@ import java.util.Properties;
 
 import Exceptions.DBAppException;
 import Table.Page;
+import Table.FileHandler;
 import Table.Table;
-import Table.Tuple;
 
 import java.util.Hashtable;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 
 public class DBApp {
 	private Metadata metadata;
+	private FileHandler fileHandler;
 
 	/**
 	 * Constructs a new DBApp.
@@ -126,8 +126,7 @@ public class DBApp {
 	// htblColNameValue enteries are ANDED together
 	public void deleteFromTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException {
-		
-	
+
 		throw new DBAppException("not implemented yet");
 	}
 
@@ -139,13 +138,7 @@ public class DBApp {
 
 	private Table loadTable(String tableName) throws IOException, ClassNotFoundException {
 		String tableDirectory = "src\\main\\java\\Table\\" + tableName + "\\" + tableName + ".class";
-		FileInputStream fileIn = new FileInputStream(tableDirectory);
-		ObjectInputStream obj = new ObjectInputStream(fileIn);
-		Table t = (Table) obj.readObject();
-
-		obj.close();
-		fileIn.close();
-		return t;
+		return (Table) fileHandler.loadInstance(tableDirectory);
 	}
 
 	public static void main(String[] args) {

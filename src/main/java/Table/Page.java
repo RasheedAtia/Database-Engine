@@ -2,17 +2,14 @@ package Table;
 
 import Exceptions.DBAppException;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.util.Vector;
 
 /**
  * The Page class represents a page in a database table.
  * It contains a vector of tuples, which represent the rows in the page.
  */
-public class Page implements Serializable {
+public class Page extends FileHandler {
     // Vector of tuples in the page
     private Vector<Tuple> tuples;
     public String name;
@@ -106,11 +103,11 @@ public class Page implements Serializable {
      * Removes a tuple from the page.
      *
      * @param t The tuple to be removed
-     * @throws DBAppException 
+     * @throws DBAppException
      */
     public void removeTuple(Tuple t) throws DBAppException {
         // if page is empty after removing, throw exception
-        if(isEmpty()){
+        if (isEmpty()) {
             throw new DBAppException("Page is empty");
         }
 
@@ -139,15 +136,7 @@ public class Page implements Serializable {
 
         // Build the full file path with table name directory and page name
         String directoryPath = "src\\main\\java\\Table\\" + tableName + "\\" + this.name + ".class";
-
-        // Open streams for writing
-        FileOutputStream fileOut = new FileOutputStream(directoryPath);
-        ObjectOutputStream out = new ObjectOutputStream(fileOut);
-
-        // Write object and close streams
-        out.writeObject(this);
-        out.close();
-        fileOut.close();
+        super.saveInstance(directoryPath);
     }
 
     /**

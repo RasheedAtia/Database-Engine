@@ -1,12 +1,7 @@
 package Table;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -19,7 +14,7 @@ import Exceptions.DBAppException;
  * It contains a vector of pages, each of which contains a vector of tuples
  * It also maintains a B+ tree index for each column in the table.
  */
-public class Table implements Serializable {
+public class Table extends FileHandler {
     // The name of the table
     public String name;
 
@@ -94,13 +89,7 @@ public class Table implements Serializable {
      */
     public Page loadPage(int pageNum) throws IOException, ClassNotFoundException {
         String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\page " + pageNum + ".class";
-        FileInputStream fileIn = new FileInputStream(relativePagePath);
-        ObjectInputStream objIn = new ObjectInputStream(fileIn);
-        Page p = (Page) objIn.readObject();
-
-        objIn.close();
-        fileIn.close();
-        return p;
+        return (Page) super.loadInstance(relativePagePath);
     }
 
     /**
@@ -120,15 +109,7 @@ public class Table implements Serializable {
 
         // Build the full file path with table name directory
         String filePath = directoryPath + this.name + ".class";
-
-        // Open streams for writing
-        FileOutputStream fileOut = new FileOutputStream(filePath);
-        ObjectOutputStream out = new ObjectOutputStream(fileOut);
-
-        // Write object and close streams
-        out.writeObject(this);
-        out.close();
-        fileOut.close();
+        super.saveInstance(filePath);
     }
 
     /**
@@ -370,7 +351,7 @@ public class Table implements Serializable {
      * @return which key is larger (> 0 means targetKey is larger,
      *         < 0 means currKey is larger, = 0 means both keys are equal)
      */
-    private static int compareClusteringKey(String targetKey, String currKey, String clusteringKeyType) {
+    public static int compareClusteringKey(String targetKey, String currKey, String clusteringKeyType) {
         switch (clusteringKeyType) {
             case "java.lang.integer":
                 return Integer.parseInt(targetKey) - Integer.parseInt(currKey);
