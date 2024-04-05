@@ -5,8 +5,7 @@ import java.io.IOException;
 import java.util.Hashtable;
 import java.util.Vector;
 
-import com.github.davidmoten.bplustree.BPlusTree;
-
+import Engine.DBApp;
 import Exceptions.DBAppException;
 
 /**
@@ -21,18 +20,17 @@ public class Table extends FileHandler {
     // The column name of the clustering key
     private String clusteringKey;
 
-    // A hashtable mapping column names to their B+ tree indices
-    private Hashtable<String, BPlusTree<?, ?>> colIdx;
-
     public int numOfPages = 0;
 
     /**
      * Constructs a new Table with the given name, clustering key, and column types.
+     * 
+     * @throws IOException
      */
-    public Table(String name, String clusteringKeyColumn) {
-        colIdx = new Hashtable<String, BPlusTree<?, ?>>();
+    public Table(String name, String clusteringKeyColumn) throws IOException {
         this.name = name;
         this.clusteringKey = clusteringKeyColumn;
+        this.saveTable();
     }
 
     /**
@@ -47,21 +45,6 @@ public class Table extends FileHandler {
      */
     public void setClusteringKey(String clusteringKey) {
         this.clusteringKey = clusteringKey;
-    }
-
-    /**
-     * @return the hashtable mapping column names to their B+ tree indices.
-     */
-    public Hashtable<String, BPlusTree<?, ?>> getColIdx() {
-        return colIdx;
-    }
-
-    /**
-     * @param colIdx Sets the hashtable mapping column names to their B+ tree
-     *               indices.
-     */
-    public void setColIdx(Hashtable<String, BPlusTree<?, ?>> colIdx) {
-        this.colIdx = colIdx;
     }
 
     /**
@@ -88,7 +71,7 @@ public class Table extends FileHandler {
      *                                found
      */
     public Page loadPage(int pageNum) throws IOException, ClassNotFoundException {
-        String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\page " + pageNum + ".class";
+        String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\Pages\\page " + pageNum + ".class";
         return (Page) super.loadInstance(relativePagePath);
     }
 
@@ -115,6 +98,7 @@ public class Table extends FileHandler {
     /**
      * Inserts new row in correct position.
      * Handle different cases of inserting in new page, or in existing page.
+     * Insert new row and its position for all available BPlusTree indicies.
      * 
      * @param htblColNameType  a Hashtable representing the column names and their
      *                         corresponding data types.
@@ -140,6 +124,15 @@ public class Table extends FileHandler {
 
         int targetPageNum = Integer.parseInt(insertionPos[0]);
         int targetRowNum = Integer.parseInt(insertionPos[1]);
+
+        // insert into BPlusTree of each index if found
+        for (String col : htblColNameType.keySet()) {
+            BPlusTreeIndex colIdx = DBApp.indicies.get(this.name).get(col);
+            if (colIdx != null) {
+                colIdx.tree.insert(htblColNameValue.get(col), targetPageNum + "");
+                colIdx.tree.commit();
+            }
+        }
 
         Page lastPage = loadPage(numOfPages - 1);
         if (lastPage.isFull() && targetPageNum > numOfPages - 1) {

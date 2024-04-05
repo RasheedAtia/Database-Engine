@@ -6,16 +6,19 @@ import java.util.Properties;
 
 import Exceptions.DBAppException;
 import Table.Page;
+import Table.BPlusTreeIndex;
 import Table.FileHandler;
 import Table.Table;
 
 import java.util.Hashtable;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
 public class DBApp {
 	private Metadata metadata;
 	private FileHandler fileHandler;
+	public static Hashtable<String, Hashtable<String, BPlusTreeIndex>> indicies;
 
 	/**
 	 * Constructs a new DBApp.
@@ -30,15 +33,46 @@ public class DBApp {
 		Page.maximumRowsCountInPage = Integer.parseInt(maxRowsCountInPageStr);
 
 		metadata = Metadata.getInstance();
+		fileHandler = new FileHandler();
+		indicies = new Hashtable<>();
 	}
 
 	/**
 	 * This method does whatever initialization you would like
 	 * or leave it empty if there is no code you want to
 	 * execute at application startup.
+	 * 
+	 * @throws DBAppException
+	 * @throws IOException
 	 */
-	public void init() {
+	public void init() throws IOException, DBAppException {
+		// load previously created indicies from hard disk to memory
 
+		String path = "src\\main\\java\\Table\\";
+		File tableDirectory = new File(path);
+		File[] tables = tableDirectory.listFiles(File::isDirectory);
+
+		for (File table : tables) {
+			String idxPath = path + table.getName() + "\\indicies\\";
+			File colDirectory = new File(idxPath);
+
+			if (!colDirectory.exists()) {
+				continue;
+			}
+
+			File[] colTrees = colDirectory.listFiles(File::isDirectory);
+
+			Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(table.getName());
+			Hashtable<String, BPlusTreeIndex> tableTrees = new Hashtable<>();
+
+			for (File colTree : colTrees) {
+				BPlusTreeIndex tree = new BPlusTreeIndex(idxPath + colTree.getName(),
+						htblColNameType.get(colTree.getName()));
+				tableTrees.put(colTree.getName(), tree);
+			}
+
+			indicies.put(table.getName(), tableTrees);
+		}
 	}
 
 	/**
@@ -54,7 +88,6 @@ public class DBApp {
 
 		// create a new table object
 		Table t = new Table(strTableName, strClusteringKeyColumn);
-		t.saveTable();
 
 		// save the table metadata
 		metadata.saveTable(t, htblColNameType);
@@ -62,7 +95,6 @@ public class DBApp {
 
 	/**
 	 * Creates a B+tree index on a specified column of a table.
-	 * TODO: create new BPlusTree for this table column
 	 *
 	 * @param strTableName the name of the table to create the index on
 	 * @param strColName   the name of the column to create the index on
@@ -73,10 +105,24 @@ public class DBApp {
 			String strColName,
 			String strIndexName) throws DBAppException, IOException, ClassNotFoundException {
 
-		// get table to insert index into
-		Table t = loadTable(strTableName);
+		String indexPath = "src\\main\\java\\Table\\" + strTableName + "\\Indicies\\" + strColName + "\\";
 
-		metadata.saveIndex(strTableName, strColName, strIndexName);
+		Hashtable<String, String> colTypes = metadata.loadColumnTypes(strTableName);
+
+		for (String col : colTypes.keySet()) {
+			if (col.equals(strColName)) {
+				if (indicies.get(strTableName) == null) {
+					indicies.put(strTableName, new Hashtable<>());
+				}
+
+				BPlusTreeIndex tree = new BPlusTreeIndex(indexPath, colTypes.get(col));
+				indicies.get(strTableName).put(strColName, tree);
+				metadata.saveIndex(strTableName, strColName, strIndexName);
+				return;
+			}
+		}
+
+		throw new DBAppException("invalid Column Name " + strColName);
 	}
 
 	/**
@@ -146,6 +192,7 @@ public class DBApp {
 		try {
 			String strTableName = "Student";
 			DBApp dbApp = new DBApp();
+			dbApp.init();
 
 			Hashtable<String, String> htblColNameType = new Hashtable<>();
 			htblColNameType.put("id", "java.lang.Integer");
@@ -162,22 +209,26 @@ public class DBApp {
 				htblColNameValue.clear();
 				htblColNameValue.put("id", i);
 				htblColNameValue.put("name", "a");
-				htblColNameValue.put("gpa", 0.0);
+				htblColNameValue.put("gpa", 0.5 + i);
 				dbApp.insertIntoTable(strTableName, htblColNameValue);
 			}
 
-			htblColNameValue.clear();
-			htblColNameValue.put("name", "b");
-			htblColNameValue.put("gpa", 1.0);
+			indicies.get(strTableName).get("gpa").tree.print();
+			indicies.get(strTableName).get("gpa").tree.find(199.5,
+					205.5).forEach(System.out::println);
 
-			dbApp.updateTable(strTableName, "401", htblColNameValue);
+			// htblColNameValue.clear();
+			// htblColNameValue.put("name", "b");
+			// htblColNameValue.put("gpa", 1.0);
 
-			Table testTable = dbApp.loadTable(strTableName);
-			for (int i = 0; i < testTable.numOfPages; i++) {
-				Page p = testTable.loadPage(i);
-				System.out.println(p);
-				System.out.println();
-			}
+			// dbApp.updateTable(strTableName, "1", htblColNameValue);
+
+			// Table testTable = dbApp.loadTable(strTableName);
+			// for (int i = 0; i < testTable.numOfPages; i++) {
+			// Page p = testTable.loadPage(i);
+			// System.out.println(p);
+			// System.out.println();
+			// }
 
 			// htblColNameValue.clear();
 			// htblColNameValue.put("id", new Integer(453455));

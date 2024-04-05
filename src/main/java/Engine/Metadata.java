@@ -34,7 +34,7 @@ public class Metadata {
      * @throws IOException if an I/O error occurs while writing to the file
      */
     public void saveTable(Table table, Hashtable<String, String> htblColNameType) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true));
 
         // Write each column data to the metadata file
         for (String key : htblColNameType.keySet()) {

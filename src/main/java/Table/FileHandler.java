@@ -8,7 +8,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
 public class FileHandler implements Serializable {
-    protected void saveInstance(String path) throws IOException {
+    public void saveInstance(String path) throws IOException {
         // Open streams for writing
         FileOutputStream fileOut = new FileOutputStream(path);
         ObjectOutputStream out = new ObjectOutputStream(fileOut);
