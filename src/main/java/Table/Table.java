@@ -20,7 +20,7 @@ public class Table extends FileHandler {
     // The column name of the clustering key
     private String clusteringKey;
 
-    public int numOfPages = 0;
+    public Vector<Integer> pageNums;
 
     /**
      * Constructs a new Table with the given name, clustering key, and column types.
@@ -30,6 +30,7 @@ public class Table extends FileHandler {
     public Table(String name, String clusteringKeyColumn) throws IOException {
         this.name = name;
         this.clusteringKey = clusteringKeyColumn;
+        this.pageNums = new Vector<Integer>();
         this.saveTable();
     }
 
@@ -47,6 +48,13 @@ public class Table extends FileHandler {
         this.clusteringKey = clusteringKey;
     }
 
+    public int getLastPageNum() {
+        if (pageNums.size() == 0)
+            return -1;
+
+        return pageNums.get(pageNums.size() - 1);
+    }
+
     /**
      * Adds a new page to the table with the given tuple as the first row.
      * The page is saved with a unique name based on the number of pages in the
@@ -56,7 +64,10 @@ public class Table extends FileHandler {
      * @throws IOException if an I/O error occurs while saving the page
      */
     public void addPage(Tuple newRow) throws IOException {
-        Page page = new Page("page " + numOfPages++, newRow);
+        int pageNum = getLastPageNum() + 1;
+        pageNums.add(pageNum);
+
+        Page page = new Page("page " + pageNum, newRow);
         page.savePage(this.name);
     }
 
@@ -114,41 +125,35 @@ public class Table extends FileHandler {
     public void insertRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException, IOException {
         Tuple newRow = this.convertInputToTuple(htblColNameType, htblColNameValue);
-
-        if (numOfPages == 0) {
-            this.addPage(newRow);
-            return;
-        }
-
-        String[] insertionPos = this.getInsertionPos(newRow, htblColNameType).split("_");
-
-        int targetPageNum = Integer.parseInt(insertionPos[0]);
-        int targetRowNum = Integer.parseInt(insertionPos[1]);
+        int[] insertionPos = this.getInsertionPos(newRow, htblColNameType);
 
         // insert into BPlusTree of each index if found
         for (String col : htblColNameType.keySet()) {
             BPlusTreeIndex colIdx = DBApp.indicies.get(this.name).get(col);
             if (colIdx != null) {
-                colIdx.tree.insert(htblColNameValue.get(col), targetPageNum + "");
+                if (insertionPos[0] >= pageNums.size())
+                    colIdx.tree.insert(htblColNameValue.get(col), "page " + (getLastPageNum() + 1));
+                else
+                    colIdx.tree.insert(htblColNameValue.get(col), "page " + pageNums.get(insertionPos[0]));
+
                 colIdx.tree.commit();
             }
         }
 
-        Page lastPage = loadPage(numOfPages - 1);
-        if (lastPage.isFull() && targetPageNum > numOfPages - 1) {
+        if (insertionPos[0] >= pageNums.size()) {
             // insert new row in new page
             this.addPage(newRow);
             return;
         }
 
-        Page targetPage = loadPage(targetPageNum);
-        if (targetRowNum >= targetPage.getTuples().size()) {
+        Page targetPage = loadPage(pageNums.get(insertionPos[0]));
+        if (insertionPos[1] >= targetPage.getTuples().size()) {
             targetPage.addTuple(newRow);
             targetPage.savePage(this.name);
             return;
         }
 
-        this.shiftRowsDownAndInsert(targetPageNum, targetRowNum, newRow);
+        this.shiftRowsDownAndInsert(insertionPos, newRow);
     }
 
     /**
@@ -219,13 +224,13 @@ public class Table extends FileHandler {
      * @throws ClassNotFoundException If the class of a serialized object cannot be
      *                                found.
      */
-    private void shiftRowsDownAndInsert(int targetPageNum, int targetRowNum, Tuple newRow)
+    private void shiftRowsDownAndInsert(int[] targetPageIdxRowNum, Tuple newRow)
             throws DBAppException, IOException, ClassNotFoundException {
-        Page targetPage = loadPage(targetPageNum);
-        Tuple curr, prev = targetPage.getTuples().get(targetRowNum);
-        targetPage.getTuples().set(targetRowNum, newRow);
+        Page targetPage = loadPage(pageNums.get(targetPageIdxRowNum[0]));
+        Tuple curr, prev = targetPage.getTuples().get(targetPageIdxRowNum[1]);
+        targetPage.getTuples().set(targetPageIdxRowNum[1], newRow);
 
-        for (int row = targetRowNum + 1; row < targetPage.getTuples().size(); row++) {
+        for (int row = targetPageIdxRowNum[1] + 1; row < targetPage.getTuples().size(); row++) {
             curr = targetPage.getTuples().get(row);
             targetPage.getTuples().set(row, prev);
             prev = curr;
@@ -239,8 +244,8 @@ public class Table extends FileHandler {
 
         targetPage.savePage(this.name);
 
-        for (int pageNum = targetPageNum + 1; pageNum < numOfPages; pageNum++) {
-            Page currPage = loadPage(pageNum);
+        for (int pageIdx = targetPageIdxRowNum[0] + 1; pageIdx < pageNums.size(); pageIdx++) {
+            Page currPage = loadPage(pageNums.get(pageIdx));
 
             for (int row = 0; row < currPage.getTuples().size(); row++) {
                 curr = currPage.getTuples().get(row);
@@ -273,20 +278,22 @@ public class Table extends FileHandler {
      * @throws ClassNotFoundException if the specified class cannot be found during
      *                                deserialization
      */
-    private String getInsertionPos(Tuple newRow, Hashtable<String, String> htblColNameType)
+    private int[] getInsertionPos(Tuple newRow, Hashtable<String, String> htblColNameType)
             throws DBAppException, IOException, ClassNotFoundException {
-        String pageNum_RowNum = "";
+
+        int targetPageIdx = 0;
+        int targetRowIdx = 0;
         int clusteringKeyIndex = getClusteringKeyIndex(htblColNameType);
 
         String targetClusteringKey = newRow.getFields()[clusteringKeyIndex] + "";
         int pageStart = 0;
-        int pageEnd = numOfPages - 1;
+        int pageEnd = pageNums.size() - 1;
         int pageMid = 0;
 
         while (pageStart <= pageEnd) {
             pageMid = pageStart + (pageEnd - pageStart) / 2;
 
-            Page currPage = loadPage(pageMid);
+            Page currPage = loadPage(pageNums.get(pageMid));
             Vector<Tuple> currPageContent = currPage.getTuples();
 
             String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";
@@ -298,25 +305,24 @@ public class Table extends FileHandler {
 
             if (comparison1 < 0) {
                 pageEnd = pageMid - 1;
-                pageNum_RowNum = pageMid + "_0";
+                targetPageIdx = pageMid;
+                targetRowIdx = 0;
             } else if (comparison2 >= 0) {
                 pageStart = pageMid + 1;
-                pageNum_RowNum = pageMid + "_" + currPageContent.size();
+                targetPageIdx = pageMid;
+                targetRowIdx = currPageContent.size();
             } else {
-                int rowNum = currPage.findInsertionRow(newRow, clusteringKeyIndex, type);
-                pageNum_RowNum = pageMid + "_" + rowNum;
+                targetPageIdx = pageMid;
+                targetRowIdx = currPage.findInsertionRow(newRow, clusteringKeyIndex, type);
                 break;
             }
         }
 
-        int pageNum = Integer.parseInt(pageNum_RowNum.split("_")[0]);
-        int rowNum = Integer.parseInt(pageNum_RowNum.split("_")[1]);
-
-        if (rowNum == Page.maximumRowsCountInPage) {
-            return (pageNum + 1) + "_0";
+        if (targetRowIdx == Page.maximumRowsCountInPage) {
+            return new int[] { targetPageIdx + 1, 0 };
         }
 
-        return pageNum_RowNum;
+        return new int[] { targetPageIdx, targetRowIdx };
     }
 
     /**
@@ -380,13 +386,13 @@ public class Table extends FileHandler {
         String clusteringKey = this.getClusteringKey();
         int clusteringKeyIndex = this.getClusteringKeyIndex(htblColNameType);
         int pageStart = 0;
-        int pageEnd = numOfPages - 1;
+        int pageEnd = pageNums.size() - 1;
         int pageMid = 0;
 
         while (pageStart <= pageEnd) {
             pageMid = pageStart + (pageEnd - pageStart) / 2;
 
-            Page currPage = loadPage(pageMid);
+            Page currPage = loadPage(pageNums.get(pageMid));
             Vector<Tuple> currPageContent = currPage.getTuples();
 
             String firstRow = currPageContent.get(0).getFields()[clusteringKeyIndex] + "";

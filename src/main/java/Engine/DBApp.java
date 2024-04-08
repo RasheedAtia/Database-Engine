@@ -88,6 +88,8 @@ public class DBApp {
 
 		// create a new table object
 		Table t = new Table(strTableName, strClusteringKeyColumn);
+		if (indicies.get(strTableName) == null)
+			indicies.put(strTableName, new Hashtable<>());
 
 		// save the table metadata
 		metadata.saveTable(t, htblColNameType);
@@ -145,10 +147,10 @@ public class DBApp {
 		Table table = loadTable(strTableName);
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
 
-		int prevNumOfPages = table.numOfPages;
+		int prevNumOfPages = table.pageNums.size();
 		table.insertRow(htblColNameType, htblColNameValue);
 
-		if (table.numOfPages != prevNumOfPages)
+		if (table.pageNums.size() != prevNumOfPages)
 			table.saveTable();
 	}
 
@@ -224,8 +226,8 @@ public class DBApp {
 			// dbApp.updateTable(strTableName, "1", htblColNameValue);
 
 			// Table testTable = dbApp.loadTable(strTableName);
-			// for (int i = 0; i < testTable.numOfPages; i++) {
-			// Page p = testTable.loadPage(i);
+			// for (int i = 0; i < testTable.pageNums.size(); i++) {
+			// Page p = testTable.loadPage(testTable.pageNums.get(i));
 			// System.out.println(p);
 			// System.out.println();
 			// }
