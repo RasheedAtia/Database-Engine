@@ -439,4 +439,41 @@ public class Table extends FileHandler {
             }
         }
     }
+
+    public void deleteRow(Hashtable<String, Object> htblColNameValue, Hashtable<String, String> htblColNameType)
+            throws ClassNotFoundException, IOException, DBAppException {
+        Vector<Integer> pagesToBeRemoved = new Vector<>();
+
+        for (int pageNum : pageNums) {
+            Page currPage = loadPage(pageNum);
+            Page newPage = new Page(currPage.name);
+
+            for (Tuple row : currPage.getTuples()) {
+                for (String col : htblColNameValue.keySet()) {
+                    int colIndex = 0;
+                    for (String colName : htblColNameType.keySet()) {
+                        if (colName.equals(col)) {
+                            if (!row.getFields()[colIndex].equals(htblColNameValue.get(col))) {
+                                newPage.addTuple(row);
+                            }
+                            break;
+                        }
+                        colIndex++;
+                    }
+                }
+            }
+
+            if (newPage.isEmpty()) {
+                pagesToBeRemoved.add(pageNum);
+            } else {
+                newPage.savePage(this.name);
+            }
+        }
+
+        for (int i = 0; i < pagesToBeRemoved.size(); i++) {
+            pageNums.remove(pagesToBeRemoved.get(i));
+        }
+
+        saveTable();
+    }
 }
