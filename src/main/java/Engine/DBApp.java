@@ -173,9 +173,11 @@ public class DBApp {
 	// to identify which rows/tuples to delete.
 	// htblColNameValue enteries are ANDED together
 	public void deleteFromTable(String strTableName,
-			Hashtable<String, Object> htblColNameValue) throws DBAppException {
+			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
-		throw new DBAppException("not implemented yet");
+		Table t = loadTable(strTableName);
+		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
+		t.deleteRow(htblColNameValue, htblColNameType);
 	}
 
 	public Iterator selectFromTable(SQLTerm[] arrSQLTerms,
@@ -204,20 +206,24 @@ public class DBApp {
 
 			htblColNameType.put("gpa", "java.lang.Double");
 			dbApp.createTable(strTableName, "id", htblColNameType);
-			dbApp.createIndex(strTableName, "gpa", "gpaIndex");
+			// dbApp.createIndex(strTableName, "gpa", "gpaIndex");
 
 			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
-			for (int i = 0; i < 400; i++) {
+			for (int i = 0; i < 500; i++) {
 				htblColNameValue.clear();
 				htblColNameValue.put("id", i);
 				htblColNameValue.put("name", "a");
 				htblColNameValue.put("gpa", 0.5 + i);
 				dbApp.insertIntoTable(strTableName, htblColNameValue);
 			}
+			htblColNameValue.clear();
+			htblColNameValue.put("name", "b");
 
-			indicies.get(strTableName).get("gpa").tree.print();
-			indicies.get(strTableName).get("gpa").tree.find(199.5,
-					205.5).forEach(System.out::println);
+			dbApp.deleteFromTable(strTableName, htblColNameValue);
+
+			// indicies.get(strTableName).get("gpa").tree.print();
+			// indicies.get(strTableName).get("gpa").tree.find(199.5,
+			// 205.5).forEach(System.out::println);
 
 			// htblColNameValue.clear();
 			// htblColNameValue.put("name", "b");
@@ -225,12 +231,13 @@ public class DBApp {
 
 			// dbApp.updateTable(strTableName, "1", htblColNameValue);
 
-			// Table testTable = dbApp.loadTable(strTableName);
-			// for (int i = 0; i < testTable.pageNums.size(); i++) {
-			// Page p = testTable.loadPage(testTable.pageNums.get(i));
-			// System.out.println(p);
-			// System.out.println();
-			// }
+			Table testTable = dbApp.loadTable(strTableName);
+			for (int i = 0; i < testTable.pageNums.size(); i++) {
+				// System.out.println(testTable.pageNums.get(i));
+				Page p = testTable.loadPage(testTable.pageNums.get(i));
+				System.out.println(p);
+				System.out.println();
+			}
 
 			// htblColNameValue.clear();
 			// htblColNameValue.put("id", new Integer(453455));
