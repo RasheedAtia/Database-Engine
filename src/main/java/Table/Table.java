@@ -3,9 +3,11 @@ package Table;
 import java.io.File;
 import java.io.IOException;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Vector;
 
 import Engine.DBApp;
+import Engine.SQLTerm;
 import Exceptions.DBAppException;
 
 /**
@@ -475,5 +477,153 @@ public class Table extends FileHandler {
         }
 
         saveTable();
+    }
+
+    public Iterator selectFromTable(SQLTerm[] arrSQLTerms, String[] strarrOperators,
+            Hashtable<String, String> htblColNameType) throws DBAppException, ClassNotFoundException, IOException {
+        String tableName = arrSQLTerms[0]._strTableName;
+        Vector<Tuple> resultSet = new Vector<>();
+        for (String string : strarrOperators) {
+            if (!string.equals("AND") && !string.equals("OR") && !string.equals("XOR")) {
+                throw new DBAppException("Invalid operator");
+            }
+        }
+        for (SQLTerm term : arrSQLTerms) {
+            if (!(term._strOperator.equals("=") || term._strOperator.equals("!=") || term._strOperator.equals(">")
+                    || term._strOperator.equals("<") || term._strOperator.equals(">=")
+                    || term._strOperator.equals("<="))) {
+                throw new DBAppException("Invalid operator");
+            }
+
+            if (!term._strTableName.equals(tableName)) {
+                throw new DBAppException("Invalid table name");
+            }
+
+        }
+        for (int pageNum = 0; pageNum < pageNums.size(); pageNum++) {
+            Page currPage = loadPage(pageNums.get(pageNum));
+
+            for (int row = 0; row < currPage.getTuples().size(); row++) {
+                Tuple currRow = currPage.getTuples().get(row);
+                Vector<Boolean> tupleConditions = new Vector<>();
+
+                for (SQLTerm term : arrSQLTerms) {
+                    String colName = term._strColumnName;
+                    Object colValue = term._objValue;
+                    String operator = term._strOperator;
+                    int colIndex = 0;
+
+                    for (String col : htblColNameType.keySet()) {
+                        if (col.equals(colName)) {
+                            break;
+                        }
+                        colIndex++;
+                    }
+                    Object rowValue = currRow.getFields()[colIndex];
+                    switch (operator) {
+                        case "=":
+                            tupleConditions.add(rowValue.equals(colValue));
+                            break;
+
+                        case "!=":
+                            tupleConditions.add(!rowValue.equals(colValue));
+                            break;
+
+                        case ">":
+                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                                    htblColNameType.get(colName).toLowerCase()) > 0);
+                            break;
+
+                        case "<":
+                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                                    htblColNameType.get(colName).toLowerCase()) < 0);
+                            break;
+
+                        case ">=":
+                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                                    htblColNameType.get(colName).toLowerCase()) >= 0);
+                            break;
+
+                        case "<=":
+                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                                    htblColNameType.get(colName).toLowerCase()) <= 0);
+                            break;
+
+                        default:
+                            throw new DBAppException("Invalid operator");
+                    }
+
+                }
+
+                Vector<String> strVecOperators = new Vector<>();
+                for (int m = 0; m < strarrOperators.length; m++) {
+                    strVecOperators.add(strarrOperators[m]);
+                }
+                int m = 0;
+                int countAnd = 0;
+                int countOR = 0;
+                int countXOR = 0;
+
+                for (int d = 0; d < strVecOperators.size(); d++) {
+                    if (strVecOperators.get(d).equals("AND")) {
+                        countAnd = countAnd + 1;
+                    }
+                }
+                while (countAnd > 0) {
+                    if (strVecOperators.get(m).equals("AND")) {
+                        tupleConditions.set(m, tupleConditions.get(m) && tupleConditions.get(m + 1));
+                        tupleConditions.remove(m + 1);
+                        strVecOperators.remove(m);
+                        m = 0;
+                        countAnd--;
+                    } else {
+                        m++;
+                    }
+                }
+
+                for (int d = 0; d < strVecOperators.size(); d++) {
+                    if (strVecOperators.get(d).equals("OR")) {
+                        countOR = countOR + 1;
+                    }
+                }
+
+                m = 0;
+                while (countOR > 0) {
+                    if (strVecOperators.get(m).equals("OR")) {
+                        tupleConditions.set(m, tupleConditions.get(m) || tupleConditions.get(m + 1));
+                        tupleConditions.remove(m + 1);
+                        strVecOperators.remove(m);
+                        m = 0;
+                        countOR--;
+                    } else {
+                        m++;
+                    }
+                }
+
+                for (int d = 0; d < strVecOperators.size(); d++) {
+                    if (strVecOperators.get(d).equals("XOR")) {
+                        countXOR = countXOR + d + 1;
+                    }
+                }
+
+                m = 0;
+                while (countXOR > 0) {
+                    if (strVecOperators.get(m).equals("XOR")) {
+                        tupleConditions.set(m, tupleConditions.get(m) ^ tupleConditions.get(m + 1));
+                        tupleConditions.remove(m + 1);
+                        strVecOperators.remove(m);
+                        m = 0;
+                        countXOR--;
+                    } else {
+                        m++;
+                    }
+                }
+                if (tupleConditions.get(0)) {
+                    resultSet.add(currRow);
+                }
+            }
+        }
+
+        return resultSet.iterator();
     }
 }
