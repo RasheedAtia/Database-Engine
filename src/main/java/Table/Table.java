@@ -1,12 +1,10 @@
 package Table;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Vector;
 
-import Engine.DBApp;
 import Engine.SQLTerm;
 import Exceptions.DBAppException;
 
@@ -84,8 +82,13 @@ public class Table extends FileHandler {
      *                                found
      */
     public Page loadPage(int pageNum) throws IOException, ClassNotFoundException {
-        String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\Pages\\page " + pageNum + ".class";
-        return (Page) super.loadInstance(relativePagePath);
+        String relativePagePath = "src\\main\\java\\Table\\" + this.name + "\\Pages\\";
+        return (Page) super.loadInstance(relativePagePath, "page " + pageNum);
+    }
+
+    public BPlusTreeIndex loadIndex(String col) throws ClassNotFoundException, IOException {
+        String relativeIndexPath = "src\\main\\java\\Table\\" + this.name + "\\Indicies\\";
+        return (BPlusTreeIndex) super.loadInstance(relativeIndexPath, col);
     }
 
     /**
@@ -96,22 +99,15 @@ public class Table extends FileHandler {
     public void saveTable() throws IOException {
         // Create the directory path with the table name
         String directoryPath = "src\\main\\java\\Table\\" + this.name + "\\";
-
-        // Create the directory if it doesn't exist
-        File directory = new File(directoryPath);
-        if (!directory.exists()) {
-            directory.mkdirs(); // Create all necessary directories in the path
-        }
-
-        // Build the full file path with table name directory
-        String filePath = directoryPath + this.name + ".class";
-        super.saveInstance(filePath);
+        super.saveInstance(directoryPath, this.name);
     }
 
     /**
      * Inserts new row in correct position.
      * Handle different cases of inserting in new page, or in existing page.
      * Insert new row and its position for all available BPlusTree indicies.
+     * 
+     * TODO: Update page reference for shifted rows in BPlusTree indicies.
      * 
      * @param htblColNameType  a Hashtable representing the column names and their
      *                         corresponding data types.
@@ -129,18 +125,7 @@ public class Table extends FileHandler {
         Tuple newRow = this.convertInputToTuple(htblColNameType, htblColNameValue);
         int[] insertionPos = this.getInsertionPos(newRow, htblColNameType);
 
-        // insert into BPlusTree of each index if found
-        for (String col : htblColNameType.keySet()) {
-            BPlusTreeIndex colIdx = DBApp.indicies.get(this.name).get(col);
-            if (colIdx != null) {
-                if (insertionPos[0] >= pageNums.size())
-                    colIdx.tree.insert(htblColNameValue.get(col), "page " + (getLastPageNum() + 1));
-                else
-                    colIdx.tree.insert(htblColNameValue.get(col), "page " + pageNums.get(insertionPos[0]));
-
-                colIdx.tree.commit();
-            }
-        }
+        insertIntoBPlusTrees(htblColNameType, htblColNameValue, insertionPos);
 
         if (insertionPos[0] >= pageNums.size()) {
             // insert new row in new page
@@ -156,6 +141,36 @@ public class Table extends FileHandler {
         }
 
         this.shiftRowsDownAndInsert(insertionPos, newRow);
+    }
+
+    private void insertIntoBPlusTrees(Hashtable<String, String> htblColNameType,
+            Hashtable<String, Object> htblColNameValue,
+            int[] insertionPos) throws ClassNotFoundException, IOException {
+        // insert into BPlusTree of each index if found
+        for (String col : htblColNameType.keySet()) {
+            BPlusTreeIndex colIdx = loadIndex(col);
+            if (colIdx == null) {
+                continue;
+            }
+
+            Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
+
+            if (pageRefs != null) {
+                if (insertionPos[0] >= pageNums.size())
+                    pageRefs.add("page " + (getLastPageNum() + 1));
+                else
+                    pageRefs.add("page " + pageNums.get(insertionPos[0]));
+            } else {
+                pageRefs = new Vector<>();
+                if (insertionPos[0] >= pageNums.size())
+                    pageRefs.add("page " + (getLastPageNum() + 1));
+                else
+                    pageRefs.add("page " + pageNums.get(insertionPos[0]));
+            }
+
+            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+            colIdx.saveTree();
+        }
     }
 
     /**

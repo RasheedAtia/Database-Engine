@@ -23,10 +23,5 @@
       <version>4.11</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.github.davidmoten</groupId>
-      <artifactId>bplustree</artifactId>
-      <version>0.1.4</version>
-    </dependency>
   </dependencies>
 </project>

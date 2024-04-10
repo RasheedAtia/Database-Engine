@@ -11,14 +11,12 @@ import Table.FileHandler;
 import Table.Table;
 
 import java.util.Hashtable;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
 public class DBApp {
 	private Metadata metadata;
 	private FileHandler fileHandler;
-	public static Hashtable<String, Hashtable<String, BPlusTreeIndex>> indicies;
 
 	/**
 	 * Constructs a new DBApp.
@@ -34,7 +32,6 @@ public class DBApp {
 
 		metadata = Metadata.getInstance();
 		fileHandler = new FileHandler();
-		indicies = new Hashtable<>();
 	}
 
 	/**
@@ -46,33 +43,7 @@ public class DBApp {
 	 * @throws IOException
 	 */
 	public void init() throws IOException, DBAppException {
-		// load previously created indicies from hard disk to memory
 
-		String path = "src\\main\\java\\Table\\";
-		File tableDirectory = new File(path);
-		File[] tables = tableDirectory.listFiles(File::isDirectory);
-
-		for (File table : tables) {
-			String idxPath = path + table.getName() + "\\indicies\\";
-			File colDirectory = new File(idxPath);
-
-			if (!colDirectory.exists()) {
-				continue;
-			}
-
-			File[] colTrees = colDirectory.listFiles(File::isDirectory);
-
-			Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(table.getName());
-			Hashtable<String, BPlusTreeIndex> tableTrees = new Hashtable<>();
-
-			for (File colTree : colTrees) {
-				BPlusTreeIndex tree = new BPlusTreeIndex(idxPath + colTree.getName(),
-						htblColNameType.get(colTree.getName()));
-				tableTrees.put(colTree.getName(), tree);
-			}
-
-			indicies.put(table.getName(), tableTrees);
-		}
 	}
 
 	/**
@@ -80,16 +51,19 @@ public class DBApp {
 	 * @param strClusteringKeyColumn The name of the column that will be the primary
 	 *                               key
 	 * @param htblColNameType        A hashtable mapping column names to their types
-	 * @throws DBAppException If an error occurs during table creation
+	 * @throws DBAppException         If an error occurs during table creation
+	 * @throws ClassNotFoundException
 	 */
 	public void createTable(String strTableName,
 			String strClusteringKeyColumn,
-			Hashtable<String, String> htblColNameType) throws DBAppException, IOException {
+			Hashtable<String, String> htblColNameType) throws DBAppException, IOException, ClassNotFoundException {
+
+		Table table = loadTable(strTableName);
+		if (table != null)
+			throw new DBAppException("Table already exists");
 
 		// create a new table object
 		Table t = new Table(strTableName, strClusteringKeyColumn);
-		if (indicies.get(strTableName) == null)
-			indicies.put(strTableName, new Hashtable<>());
 
 		// save the table metadata
 		metadata.saveTable(t, htblColNameType);
@@ -107,18 +81,19 @@ public class DBApp {
 			String strColName,
 			String strIndexName) throws DBAppException, IOException, ClassNotFoundException {
 
-		String indexPath = "src\\main\\java\\Table\\" + strTableName + "\\Indicies\\" + strColName + "\\";
+		Table table = loadTable(strTableName);
+		if (table == null)
+			throw new DBAppException("Table does not exist");
+
+		BPlusTreeIndex tree = table.loadIndex(strColName);
+		if (tree != null)
+			throw new DBAppException("Index already exists");
 
 		Hashtable<String, String> colTypes = metadata.loadColumnTypes(strTableName);
 
 		for (String col : colTypes.keySet()) {
 			if (col.equals(strColName)) {
-				if (indicies.get(strTableName) == null) {
-					indicies.put(strTableName, new Hashtable<>());
-				}
-
-				BPlusTreeIndex tree = new BPlusTreeIndex(indexPath, colTypes.get(col));
-				indicies.get(strTableName).put(strColName, tree);
+				tree = new BPlusTreeIndex(strTableName, strColName, colTypes.get(col));
 				metadata.saveIndex(strTableName, strColName, strIndexName);
 				return;
 			}
@@ -130,8 +105,6 @@ public class DBApp {
 	/**
 	 * Inserts a new tuple into the specified table with the given column-value
 	 * pairs.
-	 * 
-	 * TODO: insert new row into bplustree for each column if applicable
 	 * 
 	 * @param strTableName     the name of the table to insert into
 	 * @param htblColNameValue a Hashtable containing the column-value pairs for the
@@ -182,15 +155,15 @@ public class DBApp {
 
 	public Iterator selectFromTable(SQLTerm[] arrSQLTerms,
 			String[] strarrOperators) throws DBAppException, IOException, ClassNotFoundException {
-			
+
 		Table t = loadTable(arrSQLTerms[0]._strTableName);
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(arrSQLTerms[0]._strTableName);
 		return t.selectFromTable(arrSQLTerms, strarrOperators, htblColNameType);
 	}
 
 	private Table loadTable(String tableName) throws IOException, ClassNotFoundException {
-		String tableDirectory = "src\\main\\java\\Table\\" + tableName + "\\" + tableName + ".class";
-		return (Table) fileHandler.loadInstance(tableDirectory);
+		String tableDirectory = "src\\main\\java\\Table\\" + tableName + "\\";
+		return (Table) fileHandler.loadInstance(tableDirectory, tableName);
 	}
 
 	public static void main(String[] args) {
@@ -198,7 +171,6 @@ public class DBApp {
 		try {
 			String strTableName = "Student";
 			DBApp dbApp = new DBApp();
-			// dbApp.init();
 
 			Hashtable<String, String> htblColNameType = new Hashtable<>();
 			htblColNameType.put("id", "java.lang.Integer");
@@ -208,16 +180,15 @@ public class DBApp {
 
 			htblColNameType.put("gpa", "java.lang.Double");
 			dbApp.createTable(strTableName, "id", htblColNameType);
-			// dbApp.createIndex(strTableName, "gpa", "gpaIndex");
+			dbApp.createIndex(strTableName, "name", "gpaIndex");
 
 			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 			for (int i = 0; i < 500; i++) {
 				htblColNameValue.clear();
 				htblColNameValue.put("id", i);
-				if (i<200) {
+				if (i < 200) {
 					htblColNameValue.put("name", "b");
-				}
-				else{
+				} else {
 					htblColNameValue.put("name", "a");
 				}
 				htblColNameValue.put("gpa", 0.5 + i);
@@ -228,22 +199,22 @@ public class DBApp {
 
 			// dbApp.deleteFromTable(strTableName, htblColNameValue);
 
-			// indicies.get(strTableName).get("gpa").tree.print();
-			// indicies.get(strTableName).get("gpa").tree.find(199.5,
-			// 205.5).forEach(System.out::println);
-
 			// htblColNameValue.clear();
 			// htblColNameValue.put("name", "b");
 			// htblColNameValue.put("gpa", 1.0);
 
 			// dbApp.updateTable(strTableName, "1", htblColNameValue);
 
-			// Table testTable = dbApp.loadTable(strTableName);
+			Table testTable = dbApp.loadTable(strTableName);
+			BPlusTreeIndex tree = testTable.loadIndex("name");
+			// tree.tree.print();
+			System.out.println(tree.tree.search("b"));
+
 			// for (int i = 0; i < testTable.pageNums.size(); i++) {
-			// 	// System.out.println(testTable.pageNums.get(i));
-			// 	Page p = testTable.loadPage(testTable.pageNums.get(i));
-			// 	System.out.println(p);
-			// 	System.out.println();
+			// // System.out.println(testTable.pageNums.get(i));
+			// Page p = testTable.loadPage(testTable.pageNums.get(i));
+			// System.out.println(p);
+			// System.out.println();
 			// }
 
 			// htblColNameValue.clear();
@@ -270,55 +241,55 @@ public class DBApp {
 			// htblColNameValue.put("gpa", new Double(0.88));
 			// dbApp.insertIntoTable(strTableName, htblColNameValue);
 
-			SQLTerm[] arrSQLTerms;
-			arrSQLTerms = new SQLTerm[6];
-			arrSQLTerms[0] = new SQLTerm(); //YOU MISSED THIS LINE
-			arrSQLTerms[0]._strTableName = "Student";
-			arrSQLTerms[0]._strColumnName = "id";
-			arrSQLTerms[0]._strOperator = "=";
-			arrSQLTerms[0]._objValue = new Integer(200);
-			
-			arrSQLTerms[1] = new SQLTerm(); //YOU MISSED THIS LINE
-			arrSQLTerms[1]._strTableName = "Student";
-			arrSQLTerms[1]._strColumnName = "id";
-			arrSQLTerms[1]._strOperator = ">";
-			arrSQLTerms[1]._objValue = new Integer(3000);
+			// SQLTerm[] arrSQLTerms;
+			// arrSQLTerms = new SQLTerm[6];
+			// arrSQLTerms[0] = new SQLTerm(); // YOU MISSED THIS LINE
+			// arrSQLTerms[0]._strTableName = "Student";
+			// arrSQLTerms[0]._strColumnName = "id";
+			// arrSQLTerms[0]._strOperator = "=";
+			// arrSQLTerms[0]._objValue = new Integer(200);
 
-			arrSQLTerms[2] = new SQLTerm(); //YOU MISSED THIS LINE
-			arrSQLTerms[2]._strTableName = "Student";
-			arrSQLTerms[2]._strColumnName = "id";
-			arrSQLTerms[2]._strOperator = "=";
-			arrSQLTerms[2]._objValue = new Integer(300);
+			// arrSQLTerms[1] = new SQLTerm(); // YOU MISSED THIS LINE
+			// arrSQLTerms[1]._strTableName = "Student";
+			// arrSQLTerms[1]._strColumnName = "id";
+			// arrSQLTerms[1]._strOperator = ">";
+			// arrSQLTerms[1]._objValue = new Integer(3000);
 
-			arrSQLTerms[3] = new SQLTerm(); //YOU MISSED THIS LINE
-			arrSQLTerms[3]._strTableName = "Student";
-			arrSQLTerms[3]._strColumnName = "id";
-			arrSQLTerms[3]._strOperator = "=";
-			arrSQLTerms[3]._objValue =new Integer(200);
+			// arrSQLTerms[2] = new SQLTerm(); // YOU MISSED THIS LINE
+			// arrSQLTerms[2]._strTableName = "Student";
+			// arrSQLTerms[2]._strColumnName = "id";
+			// arrSQLTerms[2]._strOperator = "=";
+			// arrSQLTerms[2]._objValue = new Integer(300);
 
-			arrSQLTerms[4] = new SQLTerm(); //YOU MISSED THIS LINE
-			arrSQLTerms[4]._strTableName = "Student";
-			arrSQLTerms[4]._strColumnName = "id";
-			arrSQLTerms[4]._strOperator = ">";
-			arrSQLTerms[4]._objValue =new Integer(6000);
-			
-			arrSQLTerms[5] = new SQLTerm(); //YOU MISSED THIS LINE
-			arrSQLTerms[5]._strTableName = "Student";
-			arrSQLTerms[5]._strColumnName = "id";
-			arrSQLTerms[5]._strOperator = "=";
-			arrSQLTerms[5]._objValue =new Integer(300);
-			
-			String[] strarrOperators = new String[5];
-			strarrOperators[0] = "AND";
-			strarrOperators[1] = "OR";
-			strarrOperators[2] = "AND";
-			strarrOperators[3] = "AND";
-			strarrOperators[4] = "AND";
+			// arrSQLTerms[3] = new SQLTerm(); // YOU MISSED THIS LINE
+			// arrSQLTerms[3]._strTableName = "Student";
+			// arrSQLTerms[3]._strColumnName = "id";
+			// arrSQLTerms[3]._strOperator = "=";
+			// arrSQLTerms[3]._objValue = new Integer(200);
+
+			// arrSQLTerms[4] = new SQLTerm(); // YOU MISSED THIS LINE
+			// arrSQLTerms[4]._strTableName = "Student";
+			// arrSQLTerms[4]._strColumnName = "id";
+			// arrSQLTerms[4]._strOperator = ">";
+			// arrSQLTerms[4]._objValue = new Integer(6000);
+
+			// arrSQLTerms[5] = new SQLTerm(); // YOU MISSED THIS LINE
+			// arrSQLTerms[5]._strTableName = "Student";
+			// arrSQLTerms[5]._strColumnName = "id";
+			// arrSQLTerms[5]._strOperator = "=";
+			// arrSQLTerms[5]._objValue = new Integer(300);
+
+			// String[] strarrOperators = new String[5];
+			// strarrOperators[0] = "AND";
+			// strarrOperators[1] = "OR";
+			// strarrOperators[2] = "AND";
+			// strarrOperators[3] = "AND";
+			// strarrOperators[4] = "AND";
 			// select * from Student where name = "John Noor" or gpa = 1.5;
-			Iterator resultSet = dbApp.selectFromTable(arrSQLTerms, strarrOperators);
-			while (resultSet.hasNext()) {
-				System.out.println(resultSet.next());
-			}
+			// Iterator resultSet = dbApp.selectFromTable(arrSQLTerms, strarrOperators);
+			// while (resultSet.hasNext()) {
+			// System.out.println(resultSet.next());
+			// }
 		} catch (Exception exp) {
 			exp.printStackTrace();
 		}

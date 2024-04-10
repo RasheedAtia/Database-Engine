@@ -2,7 +2,6 @@ package Table;
 
 import Exceptions.DBAppException;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Vector;
 
@@ -136,14 +135,7 @@ public class Page extends FileHandler {
     public void savePage(String tableName) throws IOException {
         // Create the directory path with the table name
         String directoryPath = "src\\main\\java\\Table\\" + tableName + "\\Pages\\";
-
-        // Create the directory if it doesn't exist
-        File directory = new File(directoryPath);
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
-
-        super.saveInstance(directoryPath + this.name + ".class");
+        super.saveInstance(directoryPath, this.name);
     }
 
     /**
