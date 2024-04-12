@@ -405,10 +405,13 @@ public class Table extends FileHandler {
         int pageStart = 0;
         int pageEnd = pageNums.size() - 1;
         int pageMid = 0;
-
+        BPlusTreeIndex cluIdx = loadIndex(clusteringKey);
         while (pageStart <= pageEnd) {
             pageMid = pageStart + (pageEnd - pageStart) / 2;
-
+            if (cluIdx != null) {
+                Vector<String> pageRefs = cluIdx.tree.search(strClusteringKeyValue);
+                pageMid = Integer.parseInt(pageRefs.get(0).split(" ")[1]);
+            }
             Page currPage = loadPage(pageNums.get(pageMid));
             Vector<Tuple> currPageContent = currPage.getTuples();
 
@@ -443,7 +446,19 @@ public class Table extends FileHandler {
                                 }
                                 colIndex++;
                             }
+                            BPlusTreeIndex colIdx = loadIndex(col);
+                            if (colIdx == null) {
+                                continue;
+                            }
+                            Vector<String> pageRefs = new Vector<String>();
+                            pageRefs.add("page " + pageMid);
+                            Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
+                            pageRefs2.remove("page " + pageMid);
+                            colIdx.tree.delete(t.getFields()[colIndex].toString());
+                            colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
+                            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
                             t.getFields()[colIndex] = htblColNameValue.get(col);
+                            colIdx.saveTree();
                         }
                         currPage.savePage(this.name);
                         return;

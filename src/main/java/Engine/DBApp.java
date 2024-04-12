@@ -172,44 +172,47 @@ public class DBApp {
 			String strTableName = "Student";
 			DBApp dbApp = new DBApp();
 
-			Hashtable<String, String> htblColNameType = new Hashtable<>();
-			htblColNameType.put("id", "java.lang.Integer");
-			htblColNameType.put("name", "java.lang.String");
+			// Hashtable<String, String> htblColNameType = new Hashtable<>();
+			// htblColNameType.put("id", "java.lang.Integer");
+			// htblColNameType.put("name", "java.lang.String");
 
-			// CHANGED java.lang.double -> java.lang.Double
+			// // CHANGED java.lang.double -> java.lang.Double
 
-			htblColNameType.put("gpa", "java.lang.Double");
-			dbApp.createTable(strTableName, "id", htblColNameType);
-			dbApp.createIndex(strTableName, "name", "gpaIndex");
+			// htblColNameType.put("gpa", "java.lang.Double");
+			// dbApp.createTable(strTableName, "id", htblColNameType);
+			// dbApp.createIndex(strTableName, "name", "gpaIndex");
 
 			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
-			for (int i = 0; i < 500; i++) {
-				htblColNameValue.clear();
-				htblColNameValue.put("id", i);
-				if (i < 200) {
-					htblColNameValue.put("name", "b");
-				} else {
-					htblColNameValue.put("name", "a");
-				}
-				htblColNameValue.put("gpa", 0.5 + i);
-				dbApp.insertIntoTable(strTableName, htblColNameValue);
-			}
+			// for (int i = 0; i < 500; i++) {
+			// htblColNameValue.clear();
+			// htblColNameValue.put("id", i);
+			// if (i < 200) {
+			// htblColNameValue.put("name", "b");
+			// } else {
+			// htblColNameValue.put("name", "a");
+			// }
+			// htblColNameValue.put("gpa", 0.5 + i);
+			// dbApp.insertIntoTable(strTableName, htblColNameValue);
+			// }
 			// htblColNameValue.clear();
 			// htblColNameValue.put("name", "b");
 
 			// dbApp.deleteFromTable(strTableName, htblColNameValue);
-
 			// htblColNameValue.clear();
-			// htblColNameValue.put("name", "b");
-			// htblColNameValue.put("gpa", 1.0);
+			// htblColNameValue.put("name", "a");
 
-			// dbApp.updateTable(strTableName, "1", htblColNameValue);
+			// dbApp.deleteFromTable(strTableName, htblColNameValue);
+
+			htblColNameValue.clear();
+			htblColNameValue.put("name", "c");
+			htblColNameValue.put("gpa", 1.0);
+
+			dbApp.updateTable(strTableName, "110", htblColNameValue);
 
 			Table testTable = dbApp.loadTable(strTableName);
 			BPlusTreeIndex tree = testTable.loadIndex("name");
 			// tree.tree.print();
-			System.out.println(tree.tree.search("b"));
-
+			System.out.println(tree.tree.search("c"));
 			// for (int i = 0; i < testTable.pageNums.size(); i++) {
 			// // System.out.println(testTable.pageNums.get(i));
 			// Page p = testTable.loadPage(testTable.pageNums.get(i));
