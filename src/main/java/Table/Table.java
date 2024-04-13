@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.Vector;
 
 import Engine.SQLTerm;
+import Engine.Utils;
 import Exceptions.DBAppException;
 
 /**
@@ -122,10 +123,10 @@ public class Table extends FileHandler {
      */
     public void insertRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException, IOException {
-        Tuple newRow = this.convertInputToTuple(htblColNameType, htblColNameValue);
+        Tuple newRow = Utils.convertInputToTuple(htblColNameType, htblColNameValue);
         int[] insertionPos = this.getInsertionPos(newRow, htblColNameType);
 
-        insertIntoBPlusTrees(htblColNameType, htblColNameValue, insertionPos);
+        insertIntoBPlusTrees(htblColNameValue, insertionPos[0], false);
 
         if (insertionPos[0] >= pageNums.size()) {
             // insert new row in new page
@@ -140,14 +141,13 @@ public class Table extends FileHandler {
             return;
         }
 
-        this.shiftRowsDownAndInsert(insertionPos, newRow);
+        this.shiftRowsDownAndInsert(htblColNameType, insertionPos, newRow);
     }
 
-    private void insertIntoBPlusTrees(Hashtable<String, String> htblColNameType,
-            Hashtable<String, Object> htblColNameValue,
-            int[] insertionPos) throws ClassNotFoundException, IOException {
+    private void insertIntoBPlusTrees(Hashtable<String, Object> htblColNameValue,
+            int pageNumIdx, boolean shifted) throws ClassNotFoundException, IOException {
         // insert into BPlusTree of each index if found
-        for (String col : htblColNameType.keySet()) {
+        for (String col : htblColNameValue.keySet()) {
             BPlusTreeIndex colIdx = loadIndex(col);
             if (colIdx == null) {
                 continue;
@@ -155,76 +155,22 @@ public class Table extends FileHandler {
 
             Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
 
-            if (pageRefs != null) {
-                if (insertionPos[0] >= pageNums.size())
-                    pageRefs.add("page " + (getLastPageNum() + 1));
-                else
-                    pageRefs.add("page " + pageNums.get(insertionPos[0]));
-            } else {
+            if (pageRefs == null) {
                 pageRefs = new Vector<>();
-                if (insertionPos[0] >= pageNums.size())
-                    pageRefs.add("page " + (getLastPageNum() + 1));
-                else
-                    pageRefs.add("page " + pageNums.get(insertionPos[0]));
             }
 
+            if (shifted) {
+                pageRefs.remove("page " + pageNums.get(pageNumIdx - 1));
+            }
+            if (pageNumIdx >= pageNums.size())
+                pageRefs.add("page " + (getLastPageNum() + 1));
+            else {
+                pageRefs.add("page " + pageNums.get(pageNumIdx));
+            }
+
+            colIdx.tree.delete(htblColNameValue.get(col).toString());
             colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
             colIdx.saveTree();
-        }
-    }
-
-    /**
-     * converts form of input for easier insertion.
-     * 
-     * @param htblColNameType  maps column name to its data type.
-     * @param htblColNameValue maps column name to value of insertion.
-     * @return tuple containing values to insert.
-     */
-    private Tuple convertInputToTuple(Hashtable<String, String> htblColNameType,
-            Hashtable<String, Object> htblColNameValue)
-            throws DBAppException, IOException, ClassNotFoundException {
-
-        // fill tuple with values from input parameter htblColNameValue
-        Tuple newTuple = new Tuple();
-
-        Object[] newFields = new Object[htblColNameType.size()];
-        int pos = 0;
-
-        for (String col : htblColNameValue.keySet()) {
-            checkColTypeValidity(htblColNameValue, htblColNameType, col);
-
-            newFields[pos++] = htblColNameValue.get(col);
-        }
-
-        newTuple.setFields(newFields);
-
-        return newTuple;
-    }
-
-    /**
-     * Checks the validity of the column type for a given column in the table.
-     * Compares the existing column type with the type of the new value to be
-     * inserted.
-     * 
-     * @param htblColNameValue a Hashtable representing the column names and their
-     *                         corresponding values
-     * @param htblColNameType  a Hashtable representing the column names and their
-     *                         corresponding types
-     * @param col              the name of the column to check the type validity for
-     * @throws ClassNotFoundException if the class for the existing column type
-     *                                cannot be found
-     * @throws DBAppException         if the type of the new value does not match
-     *                                the existing column type
-     */
-    private void checkColTypeValidity(Hashtable<String, Object> htblColNameValue,
-            Hashtable<String, String> htblColNameType, String col)
-            throws ClassNotFoundException, DBAppException {
-
-        Object existingColValueType = Class.forName(htblColNameType.get(col));
-        Object newColValueType = htblColNameValue.get(col).getClass();
-
-        if (!existingColValueType.equals(newColValueType)) {
-            throw new DBAppException("Invalid insert type for column " + col);
         }
     }
 
@@ -241,7 +187,8 @@ public class Table extends FileHandler {
      * @throws ClassNotFoundException If the class of a serialized object cannot be
      *                                found.
      */
-    private void shiftRowsDownAndInsert(int[] targetPageIdxRowNum, Tuple newRow)
+    private void shiftRowsDownAndInsert(Hashtable<String, String> htblColNameType, int[] targetPageIdxRowNum,
+            Tuple newRow)
             throws DBAppException, IOException, ClassNotFoundException {
         Page targetPage = loadPage(pageNums.get(targetPageIdxRowNum[0]));
         Tuple curr, prev = targetPage.getTuples().get(targetPageIdxRowNum[1]);
@@ -259,6 +206,8 @@ public class Table extends FileHandler {
             return;
         }
 
+        Hashtable<String, Object> htblColNameValue = Utils.convertTupleToHashtable(htblColNameType, prev);
+        insertIntoBPlusTrees(htblColNameValue, targetPageIdxRowNum[0] + 1, true);
         targetPage.savePage(this.name);
 
         for (int pageIdx = targetPageIdxRowNum[0] + 1; pageIdx < pageNums.size(); pageIdx++) {
@@ -276,6 +225,8 @@ public class Table extends FileHandler {
                 return;
             }
 
+            htblColNameValue = Utils.convertTupleToHashtable(htblColNameType, prev);
+            insertIntoBPlusTrees(htblColNameValue, pageIdx + 1, true);
             currPage.savePage(this.name);
         }
 
@@ -300,7 +251,7 @@ public class Table extends FileHandler {
 
         int targetPageIdx = 0;
         int targetRowIdx = 0;
-        int clusteringKeyIndex = getClusteringKeyIndex(htblColNameType);
+        int clusteringKeyIndex = Utils.getColIndex(htblColNameType, this.clusteringKey);
 
         String targetClusteringKey = newRow.getFields()[clusteringKeyIndex] + "";
         int pageStart = 0;
@@ -317,8 +268,8 @@ public class Table extends FileHandler {
             String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
 
             String type = htblColNameType.get(clusteringKey).toLowerCase();
-            int comparison1 = compareClusteringKey(targetClusteringKey, firstRow, type);
-            int comparison2 = compareClusteringKey(targetClusteringKey, lastRow, type);
+            int comparison1 = Utils.compareKeys(targetClusteringKey, firstRow, type);
+            int comparison2 = Utils.compareKeys(targetClusteringKey, lastRow, type);
 
             if (comparison1 < 0) {
                 pageEnd = pageMid - 1;
@@ -343,44 +294,6 @@ public class Table extends FileHandler {
     }
 
     /**
-     * Returns the index of the clustering key in the given hashtable.
-     *
-     * @param htblColNameType a hashtable that maps column names to their data types
-     * @return the index of the clustering key in the hashtable
-     */
-    private int getClusteringKeyIndex(Hashtable<String, String> htblColNameType) {
-        int clusteringKeyIndex = 0;
-        for (String col : htblColNameType.keySet()) {
-            if (col.equals(clusteringKey)) {
-                break;
-            }
-            clusteringKeyIndex++;
-        }
-
-        return clusteringKeyIndex;
-    }
-
-    /**
-     * @param targetKey         first clustering key in comparison.
-     * @param currKey           second clustering key in comparison.
-     * @param clusteringKeyType type of clustering key.
-     * @return which key is larger (> 0 means targetKey is larger,
-     *         < 0 means currKey is larger, = 0 means both keys are equal)
-     */
-    public static int compareClusteringKey(String targetKey, String currKey, String clusteringKeyType) {
-        switch (clusteringKeyType) {
-            case "java.lang.integer":
-                return Integer.parseInt(targetKey) - Integer.parseInt(currKey);
-            case "java.lang.double":
-                return Double.compare(Double.parseDouble(targetKey), Double.parseDouble(currKey));
-            case "java.lang.string":
-                return targetKey.compareTo(currKey);
-            default:
-                return 0;
-        }
-    }
-
-    /**
      * Updates a row in the table with the specified column name-value pairs, based
      * on the given clustering key value.
      *
@@ -401,7 +314,7 @@ public class Table extends FileHandler {
             throws DBAppException, ClassNotFoundException, IOException {
 
         String clusteringKey = this.getClusteringKey();
-        int clusteringKeyIndex = this.getClusteringKeyIndex(htblColNameType);
+        int clusteringKeyIndex = Utils.getColIndex(htblColNameType, this.clusteringKey);
         int pageStart = 0;
         int pageEnd = pageNums.size() - 1;
         int pageMid = 0;
@@ -419,8 +332,8 @@ public class Table extends FileHandler {
             String lastRow = currPageContent.get(currPageContent.size() - 1).getFields()[clusteringKeyIndex] + "";
 
             String type = htblColNameType.get(clusteringKey).toLowerCase();
-            int comparison1 = compareClusteringKey(strClusteringKeyValue, firstRow, type);
-            int comparison2 = compareClusteringKey(strClusteringKeyValue, lastRow, type);
+            int comparison1 = Utils.compareKeys(strClusteringKeyValue, firstRow, type);
+            int comparison2 = Utils.compareKeys(strClusteringKeyValue, lastRow, type);
 
             if (comparison1 < 0) {
                 pageEnd = pageMid - 1;
@@ -433,32 +346,30 @@ public class Table extends FileHandler {
                 while (begin <= end) {
                     int mid = begin + (end - begin) / 2;
                     String currRow = currPageContent.get(mid).getFields()[clusteringKeyIndex] + "";
-                    int comparison = compareClusteringKey(strClusteringKeyValue, currRow, type);
+                    int comparison = Utils.compareKeys(strClusteringKeyValue, currRow, type);
 
                     if (comparison == 0) {
                         Tuple t = currPageContent.get(mid);
 
                         for (String col : htblColNameValue.keySet()) {
-                            int colIndex = 0;
-                            for (String colName : htblColNameType.keySet()) {
-                                if (colName.equals(col)) {
-                                    break;
-                                }
-                                colIndex++;
-                            }
+                            int colIndex = Utils.getColIndex(htblColNameType, col);
                             BPlusTreeIndex colIdx = loadIndex(col);
-                            if (colIdx == null) {
-                                continue;
+                            if (colIdx != null) {
+
+                                Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
+                                if (pageRefs == null)
+                                    pageRefs = new Vector<>();
+
+                                pageRefs.add("page " + pageMid);
+                                Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
+                                pageRefs2.remove("page " + pageMid);
+                                // colIdx.tree.delete(t.getFields()[colIndex].toString());
+                                // colIdx.tree.delete(htblColNameValue.get(col).toString());
+                                colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
+                                colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+                                colIdx.saveTree();
                             }
-                            Vector<String> pageRefs = new Vector<String>();
-                            pageRefs.add("page " + pageMid);
-                            Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
-                            pageRefs2.remove("page " + pageMid);
-                            colIdx.tree.delete(t.getFields()[colIndex].toString());
-                            colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
-                            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
                             t.getFields()[colIndex] = htblColNameValue.get(col);
-                            colIdx.saveTree();
                         }
                         currPage.savePage(this.name);
                         return;
@@ -560,22 +471,22 @@ public class Table extends FileHandler {
                             break;
 
                         case ">":
-                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                            tupleConditions.add(Utils.compareKeys(rowValue.toString(), colValue.toString(),
                                     htblColNameType.get(colName).toLowerCase()) > 0);
                             break;
 
                         case "<":
-                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                            tupleConditions.add(Utils.compareKeys(rowValue.toString(), colValue.toString(),
                                     htblColNameType.get(colName).toLowerCase()) < 0);
                             break;
 
                         case ">=":
-                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                            tupleConditions.add(Utils.compareKeys(rowValue.toString(), colValue.toString(),
                                     htblColNameType.get(colName).toLowerCase()) >= 0);
                             break;
 
                         case "<=":
-                            tupleConditions.add(compareClusteringKey(rowValue.toString(), colValue.toString(),
+                            tupleConditions.add(Utils.compareKeys(rowValue.toString(), colValue.toString(),
                                     htblColNameType.get(colName).toLowerCase()) <= 0);
                             break;
 

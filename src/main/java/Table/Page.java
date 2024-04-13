@@ -5,6 +5,8 @@ import Exceptions.DBAppException;
 import java.io.IOException;
 import java.util.Vector;
 
+import Engine.Utils;
+
 /**
  * The Page class represents a page in a database table.
  * It contains a vector of tuples, which represent the rows in the page.
@@ -159,7 +161,7 @@ public class Page extends FileHandler {
             int mid = start + (end - start) / 2;
             String currRow = this.tuples.get(mid).getFields()[clusteringKeyIndex] + "";
 
-            int comparison = Table.compareClusteringKey(targetRowClusteringKey, currRow, clusteringKeyType);
+            int comparison = Utils.compareKeys(targetRowClusteringKey, currRow, clusteringKeyType);
             if (comparison < 0) {
                 end = mid - 1;
                 row = mid;

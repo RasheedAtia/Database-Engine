@@ -195,10 +195,6 @@ public class DBApp {
 			// dbApp.insertIntoTable(strTableName, htblColNameValue);
 			// }
 			// htblColNameValue.clear();
-			// htblColNameValue.put("name", "b");
-
-			// dbApp.deleteFromTable(strTableName, htblColNameValue);
-			// htblColNameValue.clear();
 			// htblColNameValue.put("name", "a");
 
 			// dbApp.deleteFromTable(strTableName, htblColNameValue);
