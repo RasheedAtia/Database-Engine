@@ -87,6 +87,17 @@ public class Table extends FileHandler {
         return (Page) super.loadInstance(relativePagePath, "page " + pageNum);
     }
 
+    /**
+     * Loads the BPlusTreeIndex for the specified column.
+     *
+     * @param col the name of the column for which the index should be loaded
+     * @return the BPlusTreeIndex object representing the index for the specified
+     *         column
+     * @throws ClassNotFoundException if the class of the serialized object cannot
+     *                                be found
+     * @throws IOException            if an I/O error occurs while reading the
+     *                                serialized object
+     */
     public BPlusTreeIndex loadIndex(String col) throws ClassNotFoundException, IOException {
         String relativeIndexPath = "src\\main\\java\\Table\\" + this.name + "\\Indicies\\";
         return (BPlusTreeIndex) super.loadInstance(relativeIndexPath, col);
@@ -108,8 +119,6 @@ public class Table extends FileHandler {
      * Handle different cases of inserting in new page, or in existing page.
      * Insert new row and its position for all available BPlusTree indicies.
      * 
-     * TODO: Update page reference for shifted rows in BPlusTree indicies.
-     * 
      * @param htblColNameType  a Hashtable representing the column names and their
      *                         corresponding data types.
      * @param htblColNameValue a Hashtable representing the column names and their
@@ -124,13 +133,14 @@ public class Table extends FileHandler {
     public void insertRow(Hashtable<String, String> htblColNameType, Hashtable<String, Object> htblColNameValue)
             throws DBAppException, ClassNotFoundException, IOException {
         Tuple newRow = Utils.convertInputToTuple(htblColNameType, htblColNameValue);
-        int[] insertionPos = this.getInsertionPos(newRow, htblColNameType);
+        Hashtable<String, BPlusTreeIndex> indicies = loadAllBPlusTrees(htblColNameType);
+        int[] insertionPos = getInsertionPos(newRow, htblColNameType);
 
-        insertIntoBPlusTrees(htblColNameValue, insertionPos[0], false);
+        insertIntoBPlusTrees(indicies, htblColNameValue, insertionPos[0], false);
 
         if (insertionPos[0] >= pageNums.size()) {
             // insert new row in new page
-            this.addPage(newRow);
+            addPage(newRow);
             return;
         }
 
@@ -141,14 +151,27 @@ public class Table extends FileHandler {
             return;
         }
 
-        this.shiftRowsDownAndInsert(htblColNameType, insertionPos, newRow);
+        shiftRowsDownAndInsert(indicies, htblColNameType, insertionPos, newRow);
     }
 
-    private void insertIntoBPlusTrees(Hashtable<String, Object> htblColNameValue,
+    private Hashtable<String, BPlusTreeIndex> loadAllBPlusTrees(Hashtable<String, String> htblColNameType)
+            throws ClassNotFoundException, IOException {
+        Hashtable<String, BPlusTreeIndex> indices = new Hashtable<>();
+        for (String col : htblColNameType.keySet()) {
+            BPlusTreeIndex colIdx = loadIndex(col);
+            if (colIdx != null) {
+                indices.put(col, colIdx);
+            }
+        }
+        return indices;
+    }
+
+    private void insertIntoBPlusTrees(Hashtable<String, BPlusTreeIndex> indicies,
+            Hashtable<String, Object> htblColNameValue,
             int pageNumIdx, boolean shifted) throws ClassNotFoundException, IOException {
         // insert into BPlusTree of each index if found
         for (String col : htblColNameValue.keySet()) {
-            BPlusTreeIndex colIdx = loadIndex(col);
+            BPlusTreeIndex colIdx = indicies.get(col);
             if (colIdx == null) {
                 continue;
             }
@@ -187,7 +210,8 @@ public class Table extends FileHandler {
      * @throws ClassNotFoundException If the class of a serialized object cannot be
      *                                found.
      */
-    private void shiftRowsDownAndInsert(Hashtable<String, String> htblColNameType, int[] targetPageIdxRowNum,
+    private void shiftRowsDownAndInsert(Hashtable<String, BPlusTreeIndex> indicies,
+            Hashtable<String, String> htblColNameType, int[] targetPageIdxRowNum,
             Tuple newRow)
             throws DBAppException, IOException, ClassNotFoundException {
         Page targetPage = loadPage(pageNums.get(targetPageIdxRowNum[0]));
@@ -207,7 +231,7 @@ public class Table extends FileHandler {
         }
 
         Hashtable<String, Object> htblColNameValue = Utils.convertTupleToHashtable(htblColNameType, prev);
-        insertIntoBPlusTrees(htblColNameValue, targetPageIdxRowNum[0] + 1, true);
+        insertIntoBPlusTrees(indicies, htblColNameValue, targetPageIdxRowNum[0] + 1, true);
         targetPage.savePage(this.name);
 
         for (int pageIdx = targetPageIdxRowNum[0] + 1; pageIdx < pageNums.size(); pageIdx++) {
@@ -226,7 +250,7 @@ public class Table extends FileHandler {
             }
 
             htblColNameValue = Utils.convertTupleToHashtable(htblColNameType, prev);
-            insertIntoBPlusTrees(htblColNameValue, pageIdx + 1, true);
+            insertIntoBPlusTrees(indicies, htblColNameValue, pageIdx + 1, true);
             currPage.savePage(this.name);
         }
 
@@ -383,6 +407,16 @@ public class Table extends FileHandler {
         }
     }
 
+    /**
+     * Deletes rows from the table that match the specified column name-value pairs.
+     *
+     * @param htblColNameValue a Hashtable containing the column name-value pairs to
+     *                         match
+     * @param htblColNameType  a Hashtable containing the column name-type pairs
+     * @throws ClassNotFoundException if the specified class cannot be found
+     * @throws IOException            if an I/O error occurs
+     * @throws DBAppException         if an error occurs in the database application
+     */
     public void deleteRow(Hashtable<String, Object> htblColNameValue, Hashtable<String, String> htblColNameType)
             throws ClassNotFoundException, IOException, DBAppException {
         Vector<Integer> pagesToBeRemoved = new Vector<>();
@@ -420,6 +454,24 @@ public class Table extends FileHandler {
         saveTable();
     }
 
+    /**
+     * Executes a select query on the table and returns an iterator over the result
+     * set.
+     *
+     * @param arrSQLTerms     an array of SQLTerm objects representing the
+     *                        conditions of the query
+     * @param strarrOperators an array of String objects representing the logical
+     *                        operators between the conditions
+     * @param htblColNameType a Hashtable containing the column names and their
+     *                        corresponding data types
+     * @return an Iterator over the result set of the select query
+     * @throws DBAppException         if there is an error executing the select
+     *                                query
+     * @throws ClassNotFoundException if a required class is not found during the
+     *                                execution of the select query
+     * @throws IOException            if an I/O error occurs during the execution of
+     *                                the select query
+     */
     public Iterator selectFromTable(SQLTerm[] arrSQLTerms, String[] strarrOperators,
             Hashtable<String, String> htblColNameType) throws DBAppException, ClassNotFoundException, IOException {
         String tableName = arrSQLTerms[0]._strTableName;

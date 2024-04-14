@@ -20,9 +20,21 @@ public class BPlusTreeIndex extends FileHandler {
         this.colName = colName;
         this.tree = new BTree<String, Vector<String>>();
         fillTree();
-        this.saveTree();
+        saveTree();
     }
 
+    /**
+     * Fills the B+ tree index with data from the table.
+     * This method retrieves the table data, iterates through each page, and inserts
+     * the values into the B+ tree index.
+     * The B+ tree index is used for efficient searching and retrieval of data based
+     * on the specified column.
+     *
+     * @throws IOException            if an I/O error occurs while loading the table
+     *                                or page data
+     * @throws ClassNotFoundException if the class of a serialized object cannot be
+     *                                found during loading
+     */
     private void fillTree() throws IOException, ClassNotFoundException {
         String tableDirectory = "src\\main\\java\\Table\\" + tableName + "\\";
         Table table = (Table) super.loadInstance(tableDirectory, tableName);
@@ -51,6 +63,11 @@ public class BPlusTreeIndex extends FileHandler {
         }
     }
 
+    /**
+     * Saves the B+ tree index to a file.
+     *
+     * @throws IOException if an I/O error occurs while saving the tree.
+     */
     public void saveTree() throws IOException {
         String indexPath = "src\\main\\java\\Table\\" + this.tableName + "\\Indicies\\";
         super.saveInstance(indexPath, colName);

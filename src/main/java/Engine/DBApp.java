@@ -242,41 +242,12 @@ public class DBApp {
 
 			// SQLTerm[] arrSQLTerms;
 			// arrSQLTerms = new SQLTerm[6];
-			// arrSQLTerms[0] = new SQLTerm(); // YOU MISSED THIS LINE
-			// arrSQLTerms[0]._strTableName = "Student";
-			// arrSQLTerms[0]._strColumnName = "id";
-			// arrSQLTerms[0]._strOperator = "=";
-			// arrSQLTerms[0]._objValue = new Integer(200);
-
-			// arrSQLTerms[1] = new SQLTerm(); // YOU MISSED THIS LINE
-			// arrSQLTerms[1]._strTableName = "Student";
-			// arrSQLTerms[1]._strColumnName = "id";
-			// arrSQLTerms[1]._strOperator = ">";
-			// arrSQLTerms[1]._objValue = new Integer(3000);
-
-			// arrSQLTerms[2] = new SQLTerm(); // YOU MISSED THIS LINE
-			// arrSQLTerms[2]._strTableName = "Student";
-			// arrSQLTerms[2]._strColumnName = "id";
-			// arrSQLTerms[2]._strOperator = "=";
-			// arrSQLTerms[2]._objValue = new Integer(300);
-
-			// arrSQLTerms[3] = new SQLTerm(); // YOU MISSED THIS LINE
-			// arrSQLTerms[3]._strTableName = "Student";
-			// arrSQLTerms[3]._strColumnName = "id";
-			// arrSQLTerms[3]._strOperator = "=";
-			// arrSQLTerms[3]._objValue = new Integer(200);
-
-			// arrSQLTerms[4] = new SQLTerm(); // YOU MISSED THIS LINE
-			// arrSQLTerms[4]._strTableName = "Student";
-			// arrSQLTerms[4]._strColumnName = "id";
-			// arrSQLTerms[4]._strOperator = ">";
-			// arrSQLTerms[4]._objValue = new Integer(6000);
-
-			// arrSQLTerms[5] = new SQLTerm(); // YOU MISSED THIS LINE
-			// arrSQLTerms[5]._strTableName = "Student";
-			// arrSQLTerms[5]._strColumnName = "id";
-			// arrSQLTerms[5]._strOperator = "=";
-			// arrSQLTerms[5]._objValue = new Integer(300);
+			// arrSQLTerms[0] = new SQLTerm("Student", "id", "=", new Integer(200));
+			// arrSQLTerms[1] = new SQLTerm("Student", "id", ">", new Integer(3000));
+			// arrSQLTerms[2] = new SQLTerm("Student", "id", "=", new Integer(300));
+			// arrSQLTerms[3] = new SQLTerm("Student", "id", "=", new Integer(200));
+			// arrSQLTerms[4] = new SQLTerm("Student", "id", ">", new Integer(6000));
+			// arrSQLTerms[5] = new SQLTerm("Student", "id", "=", new Integer(300));
 
 			// String[] strarrOperators = new String[5];
 			// strarrOperators[0] = "AND";
