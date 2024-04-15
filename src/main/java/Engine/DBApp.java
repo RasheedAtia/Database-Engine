@@ -120,11 +120,8 @@ public class DBApp {
 		Table table = loadTable(strTableName);
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
 
-		int prevNumOfPages = table.pageNums.size();
 		table.insertRow(htblColNameType, htblColNameValue);
-
-		if (table.pageNums.size() != prevNumOfPages)
-			table.saveTable();
+		table.saveTable();
 	}
 
 	// following method updates one row only
@@ -161,107 +158,12 @@ public class DBApp {
 		return t.selectFromTable(arrSQLTerms, strarrOperators, htblColNameType);
 	}
 
-	private Table loadTable(String tableName) throws IOException, ClassNotFoundException {
+	public Table loadTable(String tableName) throws IOException, ClassNotFoundException {
 		String tableDirectory = "src\\main\\java\\Table\\" + tableName + "\\";
 		return (Table) fileHandler.loadInstance(tableDirectory, tableName);
 	}
 
 	public static void main(String[] args) {
 
-		try {
-			String strTableName = "Student";
-			DBApp dbApp = new DBApp();
-
-			// Hashtable<String, String> htblColNameType = new Hashtable<>();
-			// htblColNameType.put("id", "java.lang.Integer");
-			// htblColNameType.put("name", "java.lang.String");
-
-			// // CHANGED java.lang.double -> java.lang.Double
-
-			// htblColNameType.put("gpa", "java.lang.Double");
-			// dbApp.createTable(strTableName, "id", htblColNameType);
-			// dbApp.createIndex(strTableName, "name", "gpaIndex");
-
-			Hashtable<String, Object> htblColNameValue = new Hashtable<>();
-			// for (int i = 0; i < 500; i++) {
-			// htblColNameValue.clear();
-			// htblColNameValue.put("id", i);
-			// if (i < 200) {
-			// htblColNameValue.put("name", "b");
-			// } else {
-			// htblColNameValue.put("name", "a");
-			// }
-			// htblColNameValue.put("gpa", 0.5 + i);
-			// dbApp.insertIntoTable(strTableName, htblColNameValue);
-			// }
-			// htblColNameValue.clear();
-			// htblColNameValue.put("name", "a");
-
-			// dbApp.deleteFromTable(strTableName, htblColNameValue);
-
-			htblColNameValue.clear();
-			htblColNameValue.put("name", "c");
-			htblColNameValue.put("gpa", 1.0);
-
-			dbApp.updateTable(strTableName, "110", htblColNameValue);
-
-			Table testTable = dbApp.loadTable(strTableName);
-			BPlusTreeIndex tree = testTable.loadIndex("name");
-			// tree.tree.print();
-			System.out.println(tree.tree.search("c"));
-			// for (int i = 0; i < testTable.pageNums.size(); i++) {
-			// // System.out.println(testTable.pageNums.get(i));
-			// Page p = testTable.loadPage(testTable.pageNums.get(i));
-			// System.out.println(p);
-			// System.out.println();
-			// }
-
-			// htblColNameValue.clear();
-			// htblColNameValue.put("id", new Integer(453455));
-			// htblColNameValue.put("name", new String("Ahmed Noor"));
-			// htblColNameValue.put("gpa", new Double(0.95));
-			// dbApp.insertIntoTable(strTableName, htblColNameValue);
-
-			// htblColNameValue.clear();
-			// htblColNameValue.put("id", new Integer(5674567));
-			// htblColNameValue.put("name", new String("Dalia Noor"));
-			// htblColNameValue.put("gpa", new Double(1.5));
-			// dbApp.insertIntoTable(strTableName, htblColNameValue);
-
-			// htblColNameValue.clear();
-			// htblColNameValue.put("id", new Integer(23498));
-			// htblColNameValue.put("name", new String("John Noor"));
-			// htblColNameValue.put("gpa", new Double(1.5));
-			// dbApp.insertIntoTable(strTableName, htblColNameValue);
-
-			// htblColNameValue.clear();
-			// htblColNameValue.put("id", new Integer(78452));
-			// htblColNameValue.put("name", new String("Zaky Noor"));
-			// htblColNameValue.put("gpa", new Double(0.88));
-			// dbApp.insertIntoTable(strTableName, htblColNameValue);
-
-			// SQLTerm[] arrSQLTerms;
-			// arrSQLTerms = new SQLTerm[6];
-			// arrSQLTerms[0] = new SQLTerm("Student", "id", "=", new Integer(200));
-			// arrSQLTerms[1] = new SQLTerm("Student", "id", ">", new Integer(3000));
-			// arrSQLTerms[2] = new SQLTerm("Student", "id", "=", new Integer(300));
-			// arrSQLTerms[3] = new SQLTerm("Student", "id", "=", new Integer(200));
-			// arrSQLTerms[4] = new SQLTerm("Student", "id", ">", new Integer(6000));
-			// arrSQLTerms[5] = new SQLTerm("Student", "id", "=", new Integer(300));
-
-			// String[] strarrOperators = new String[5];
-			// strarrOperators[0] = "AND";
-			// strarrOperators[1] = "OR";
-			// strarrOperators[2] = "AND";
-			// strarrOperators[3] = "AND";
-			// strarrOperators[4] = "AND";
-			// select * from Student where name = "John Noor" or gpa = 1.5;
-			// Iterator resultSet = dbApp.selectFromTable(arrSQLTerms, strarrOperators);
-			// while (resultSet.hasNext()) {
-			// System.out.println(resultSet.next());
-			// }
-		} catch (Exception exp) {
-			exp.printStackTrace();
-		}
 	}
 }
