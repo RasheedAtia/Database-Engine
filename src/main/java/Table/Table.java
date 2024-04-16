@@ -434,10 +434,13 @@ public class Table extends FileHandler {
     public void deleteRow(Hashtable<String, Object> htblColNameValue, Hashtable<String, String> htblColNameType)
             throws ClassNotFoundException, IOException, DBAppException {
         Vector<Integer> pagesToBeRemoved = new Vector<>();
+        Hashtable<String, BPlusTreeIndex> indicies = loadAllBPlusTrees(htblColNameType);
+
 
         for (int pageNum : pageNums) {
             Page currPage = loadPage(pageNum);
             Page newPage = new Page(currPage.name);
+            deleteFromBplustrees(indicies, htblColNameValue, pageNum);
 
             for (Tuple row : currPage.getTuples()) {
                 for (String col : htblColNameValue.keySet()) {
@@ -469,7 +472,19 @@ public class Table extends FileHandler {
 
         saveTable();
     }
+    private void deleteFromBplustrees(Hashtable<String, BPlusTreeIndex> indicies, Hashtable<String, Object> htblColNameValue, int pageNum) throws ClassNotFoundException, IOException {
+        for (String col : htblColNameValue.keySet()) {
+            BPlusTreeIndex colIdx = indicies.get(col);
+            if (colIdx == null) {
+                continue;
+            }
 
+            Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
+            pageRefs.remove("page " + pageNum);
+            colIdx.tree.delete(htblColNameValue.get(col).toString());
+            colIdx.saveTree();
+        }
+    }
     /**
      * Executes a select query on the table and returns an iterator over the result
      * set.
