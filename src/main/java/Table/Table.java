@@ -478,7 +478,9 @@ public class Table extends FileHandler {
             if (colIdx == null) {
                 continue;
             }
-
+            if (colIdx.tree.search(htblColNameValue.get(col).toString()) == null){
+                continue;
+            }
             Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
             pageRefs.remove("page " + pageNum);
             colIdx.tree.delete(htblColNameValue.get(col).toString());
