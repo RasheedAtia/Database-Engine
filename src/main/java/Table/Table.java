@@ -434,8 +434,13 @@ public class Table extends FileHandler {
     public void deleteRow(Hashtable<String, Object> htblColNameValue, Hashtable<String, String> htblColNameType)
             throws ClassNotFoundException, IOException, DBAppException {
         Vector<Integer> pagesToBeRemoved = new Vector<>();
-        Hashtable<String, BPlusTreeIndex> indicies = loadAllBPlusTrees(htblColNameType);
-
+        Hashtable<String, BPlusTreeIndex> indicies = new Hashtable<>();
+        for (String col : htblColNameValue.keySet()) {
+            BPlusTreeIndex colIdx = loadIndex(col);
+            if (colIdx != null) {
+                indicies.put(col, colIdx);
+            }
+        }
 
         for (int pageNum : pageNums) {
             Page currPage = loadPage(pageNum);

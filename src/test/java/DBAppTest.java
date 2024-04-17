@@ -119,12 +119,12 @@ public class DBAppTest {
 
             createTableAndIndicies();
             insertRows();
-            // deleteRows();
+            deleteRows();
             // updateRow();
             // select();
             // printTable();
-            printPageRanges();
-            // printTree("name");
+            // printPageRanges();
+            printTree("name");
 
         } catch (Exception e) {
             e.printStackTrace();
