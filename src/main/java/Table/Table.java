@@ -1,6 +1,7 @@
 package Table;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Vector;
@@ -317,7 +318,7 @@ public class Table extends FileHandler {
                 targetRowIdx = -1;
             } else {
                 Page currPage = loadPage(pageNums.get(pageMid));
-                targetRowIdx = currPage.findInsertionRow(newRow, clusteringKeyIndex, type);
+                targetRowIdx = currPage.findInsertionRow(targetClusteringKey, clusteringKeyIndex, type);
                 break;
             }
         }
@@ -403,6 +404,8 @@ public class Table extends FileHandler {
                                 pageRefs.add("page " + pageMid);
                                 Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
                                 pageRefs2.remove("page " + pageMid);
+                                colIdx.tree.delete(t.getFields()[colIndex].toString());
+                                colIdx.tree.delete(htblColNameValue.get(col).toString());
                                 colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
                                 colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
                                 colIdx.saveTree();
@@ -431,34 +434,136 @@ public class Table extends FileHandler {
      * @throws IOException            if an I/O error occurs
      * @throws DBAppException         if an error occurs in the database application
      */
-    public void deleteRow(Hashtable<String, Object> htblColNameValue, Hashtable<String, String> htblColNameType)
+
+    public void deleteRow(Hashtable<String, Object> htblColNameValue,
+            Hashtable<String, String> htblColNameType)
             throws ClassNotFoundException, IOException, DBAppException {
-        Vector<Integer> pagesToBeRemoved = new Vector<>();
-        Hashtable<String, BPlusTreeIndex> indicies = new Hashtable<>();
+
+        Hashtable<String, BPlusTreeIndex> indicies = loadAllBPlusTrees(htblColNameType);
+
+        // use clusteringKey (if found) to binary search and delete row
         for (String col : htblColNameValue.keySet()) {
-            BPlusTreeIndex colIdx = loadIndex(col);
-            if (colIdx != null) {
-                indicies.put(col, colIdx);
+            if (col.equals(clusteringKey)) {
+                deleteByBinarySearch(htblColNameValue.get(col), htblColNameType, indicies);
+                return;
             }
         }
 
-        for (int pageNum : pageNums) {
+        HashSet<Integer> pagesToBeLoaded = new HashSet<>();
+
+        for (String col : htblColNameValue.keySet()) {
+            if (indicies.get(col) == null)
+                continue;
+
+            Vector<String> pageRefs = indicies.get(col).tree.search(htblColNameValue.get(col).toString());
+            // if the value is not found in the index, then the row does not exist
+            if (pageRefs == null) {
+                return;
+            }
+            if (pagesToBeLoaded.isEmpty()) {
+                for (String x : pageRefs) {
+                    pagesToBeLoaded.add(Integer.parseInt(x.split(" ")[1]));
+                }
+            } else {
+                Vector<Integer> tmp = new Vector<>();
+                for (String x : pageRefs) {
+                    tmp.add(Integer.parseInt(x.split(" ")[1]));
+                }
+                pagesToBeLoaded.retainAll(tmp);
+            }
+        }
+
+        Vector<Integer> pagesToBeLoadedVec = new Vector<>();
+        for (int page : pagesToBeLoaded) {
+            pagesToBeLoadedVec.add(page);
+        }
+
+        if (pagesToBeLoadedVec.isEmpty()) {
+            pagesToBeLoadedVec = pageNums;
+        }
+
+        deleteByLinearSearch(pagesToBeLoadedVec, htblColNameValue, htblColNameType, indicies);
+    }
+
+    private void deleteByBinarySearch(Object clusteringKeyVal, Hashtable<String, String> htblColNameType,
+            Hashtable<String, BPlusTreeIndex> indicies)
+            throws ClassNotFoundException, IOException, DBAppException {
+
+        int clusteringKeyIndex = Utils.getColIndex(htblColNameType, clusteringKey);
+        int pageStart = 0;
+        int pageEnd = pageNums.size() - 1;
+        int pageMid = 0;
+
+        while (pageStart <= pageEnd) {
+            pageMid = pageStart + (pageEnd - pageStart) / 2;
+            Object[] currPageRange = pageRanges.get(pageNums.get(pageMid));
+
+            String type = htblColNameType.get(clusteringKey).toLowerCase();
+            int comparison1 = Utils.compareKeys(clusteringKeyVal.toString(), currPageRange[0].toString(), type);
+            int comparison2 = Utils.compareKeys(clusteringKeyVal.toString(), currPageRange[1].toString(), type);
+
+            if (comparison1 < 0) {
+                pageEnd = pageMid - 1;
+            } else if (comparison2 > 0) {
+                pageStart = pageMid + 1;
+            } else {
+                Page currPage = loadPage(pageNums.get(pageMid));
+                Vector<Tuple> currPageContent = currPage.getTuples();
+
+                int begin = 0;
+                int end = currPageContent.size();
+
+                while (begin <= end) {
+                    int mid = begin + (end - begin) / 2;
+                    String currRow = currPageContent.get(mid).getFields()[clusteringKeyIndex] + "";
+                    int comparison = Utils.compareKeys(clusteringKeyVal.toString(), currRow, type);
+
+                    if (comparison == 0) {
+                        Tuple t = currPageContent.get(mid);
+
+                        Hashtable<String, Object> htblRow = Utils.convertTupleToHashtable(htblColNameType, t);
+                        deleteFromBplustrees(indicies, htblRow, pageNums.get(pageMid));
+
+                        currPage.removeTuple(t);
+                        currPage.savePage(this.name);
+                        updatePageRanges(htblColNameType, currPage);
+                        return;
+                    } else if (comparison < 0) {
+                        end = mid - 1;
+                    } else {
+                        begin = mid + 1;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    private void deleteByLinearSearch(Vector<Integer> pages, Hashtable<String, Object> htblColNameValue,
+            Hashtable<String, String> htblColNameType, Hashtable<String, BPlusTreeIndex> indicies)
+            throws ClassNotFoundException, IOException, DBAppException {
+
+        Vector<Integer> pagesToBeRemoved = new Vector<>();
+        for (int pageNum : pages) {
+            System.out.println(pageNum);
             Page currPage = loadPage(pageNum);
             Page newPage = new Page(currPage.name);
-            deleteFromBplustrees(indicies, htblColNameValue, pageNum);
 
             for (Tuple row : currPage.getTuples()) {
+                boolean remove = true;
+
                 for (String col : htblColNameValue.keySet()) {
-                    int colIndex = 0;
-                    for (String colName : htblColNameType.keySet()) {
-                        if (colName.equals(col)) {
-                            if (!row.getFields()[colIndex].equals(htblColNameValue.get(col))) {
-                                newPage.addTuple(row);
-                            }
-                            break;
-                        }
-                        colIndex++;
+                    int colIndex = Utils.getColIndex(htblColNameType, col);
+                    if (!row.getFields()[colIndex].equals(htblColNameValue.get(col))) {
+                        newPage.addTuple(row);
+                        remove = false;
+                        break;
                     }
+                }
+
+                if (remove) {
+                    Hashtable<String, Object> htblRow = Utils.convertTupleToHashtable(htblColNameType, row);
+                    deleteFromBplustrees(indicies, htblRow, pageNum);
                 }
             }
 
@@ -474,24 +579,24 @@ public class Table extends FileHandler {
             pageRanges.remove(pagesToBeRemoved.get(i));
             pageNums.remove(pagesToBeRemoved.get(i));
         }
-
-        saveTable();
     }
-    private void deleteFromBplustrees(Hashtable<String, BPlusTreeIndex> indicies, Hashtable<String, Object> htblColNameValue, int pageNum) throws ClassNotFoundException, IOException {
-        for (String col : htblColNameValue.keySet()) {
+
+    private void deleteFromBplustrees(Hashtable<String, BPlusTreeIndex> indicies,
+            Hashtable<String, Object> htblColNameValue, int pageNum) throws ClassNotFoundException, IOException {
+        for (String col : indicies.keySet()) {
             BPlusTreeIndex colIdx = indicies.get(col);
-            if (colIdx == null) {
-                continue;
-            }
-            if (colIdx.tree.search(htblColNameValue.get(col).toString()) == null){
-                continue;
-            }
+
             Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
+            if (colIdx.tree.search(htblColNameValue.get(col).toString()) == null) {
+                continue;
+            }
             pageRefs.remove("page " + pageNum);
             colIdx.tree.delete(htblColNameValue.get(col).toString());
+            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
             colIdx.saveTree();
         }
     }
+
     /**
      * Executes a select query on the table and returns an iterator over the result
      * set.

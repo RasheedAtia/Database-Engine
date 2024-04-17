@@ -25,8 +25,6 @@ public class Utils {
         int pos = 0;
 
         for (String col : htblColNameValue.keySet()) {
-            checkColTypeValidity(htblColNameValue, htblColNameType, col);
-
             newFields[pos++] = htblColNameValue.get(col);
         }
 
@@ -58,21 +56,26 @@ public class Utils {
      *                         corresponding values
      * @param htblColNameType  a Hashtable representing the column names and their
      *                         corresponding types
-     * @param col              the name of the column to check the type validity for
      * @throws ClassNotFoundException if the class for the existing column type
      *                                cannot be found
      * @throws DBAppException         if the type of the new value does not match
      *                                the existing column type
      */
-    private static void checkColTypeValidity(Hashtable<String, Object> htblColNameValue,
-            Hashtable<String, String> htblColNameType, String col)
+    public static void checkColsTypeValidity(Hashtable<String, Object> htblColNameValue,
+            Hashtable<String, String> htblColNameType)
             throws ClassNotFoundException, DBAppException {
 
-        Object existingColValueType = Class.forName(htblColNameType.get(col));
-        Object newColValueType = htblColNameValue.get(col).getClass();
+        for (String col : htblColNameValue.keySet()) {
+            if (htblColNameType.get(col) == null) {
+                throw new DBAppException("Column " + col + " does not exist in table");
+            }
 
-        if (!existingColValueType.equals(newColValueType)) {
-            throw new DBAppException("Invalid insert type for column " + col);
+            Object existingColValueType = Class.forName(htblColNameType.get(col));
+            Object newColValueType = htblColNameValue.get(col).getClass();
+
+            if (!existingColValueType.equals(newColValueType)) {
+                throw new DBAppException("Invalid insert type for column " + col);
+            }
         }
     }
 

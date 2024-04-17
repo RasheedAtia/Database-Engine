@@ -117,8 +117,12 @@ public class DBApp {
 	public void insertIntoTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
-		Table table = loadTable(strTableName);
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
+		if (htblColNameType.size() != htblColNameValue.size())
+			throw new DBAppException("Number of columns in table does not match number of columns in input");
+
+		Utils.checkColsTypeValidity(htblColNameValue, htblColNameType);
+		Table table = loadTable(strTableName);
 
 		table.insertRow(htblColNameType, htblColNameValue);
 		table.saveTable();
@@ -132,8 +136,9 @@ public class DBApp {
 			String strClusteringKeyValue,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, IOException, ClassNotFoundException {
 
-		Table table = loadTable(strTableName);
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
+		Utils.checkColsTypeValidity(htblColNameValue, htblColNameType);
+		Table table = loadTable(strTableName);
 
 		table.updateRow(htblColNameType, htblColNameValue, strClusteringKeyValue);
 	}
@@ -145,9 +150,12 @@ public class DBApp {
 	public void deleteFromTable(String strTableName,
 			Hashtable<String, Object> htblColNameValue) throws DBAppException, ClassNotFoundException, IOException {
 
-		Table t = loadTable(strTableName);
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
+		Utils.checkColsTypeValidity(htblColNameValue, htblColNameType);
+		Table t = loadTable(strTableName);
+
 		t.deleteRow(htblColNameValue, htblColNameType);
+		t.saveTable();
 	}
 
 	public Iterator selectFromTable(SQLTerm[] arrSQLTerms,

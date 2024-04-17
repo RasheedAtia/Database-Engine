@@ -20,13 +20,11 @@ public class FileHandler implements Serializable {
         path += fileName + ".class";
 
         // Open streams for writing
-        FileOutputStream fileOut = new FileOutputStream(path);
-        ObjectOutputStream out = new ObjectOutputStream(fileOut);
-
-        // Write object and close streams
-        out.writeObject(this);
-        out.close();
-        fileOut.close();
+        try (FileOutputStream fileOut = new FileOutputStream(path);
+                ObjectOutputStream out = new ObjectOutputStream(fileOut)) {
+            // Write object and close streams
+            out.writeObject(this);
+        }
     }
 
     public Object loadInstance(String path, String fileName) throws IOException, ClassNotFoundException {
@@ -43,13 +41,12 @@ public class FileHandler implements Serializable {
             return null;
         }
 
-        FileInputStream fileIn = new FileInputStream(path);
-        ObjectInputStream objIn = new ObjectInputStream(fileIn);
-        Object o = objIn.readObject();
+        Object o;
+        try (FileInputStream fileIn = new FileInputStream(path);
+                ObjectInputStream objIn = new ObjectInputStream(fileIn)) {
 
-        objIn.close();
-        fileIn.close();
-
+            o = objIn.readObject();
+        }
         return o;
     }
 }

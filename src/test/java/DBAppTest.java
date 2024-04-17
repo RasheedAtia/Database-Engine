@@ -108,6 +108,9 @@ public class DBAppTest {
     public static void printTree(String col) throws ClassNotFoundException, IOException {
         Table testTable = engine.loadTable(strTableName);
         BPlusTreeIndex tree = testTable.loadIndex(col);
+        if (tree == null)
+            return;
+
         tree.tree.print();
         // System.out.println(tree.tree.search("c"));
     }
@@ -124,7 +127,9 @@ public class DBAppTest {
             // select();
             // printTable();
             // printPageRanges();
+            printTree("id");
             printTree("name");
+            printTree("gpa");
 
         } catch (Exception e) {
             e.printStackTrace();

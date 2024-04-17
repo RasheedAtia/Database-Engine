@@ -150,9 +150,8 @@ public class Page extends FileHandler {
      * @return the index of the row where the target row should be inserted
      * @throws DBAppException if an error occurs during the insertion process
      */
-    public int findInsertionRow(Tuple targetRow, int clusteringKeyIndex, String clusteringKeyType)
+    public int findInsertionRow(String targetRowClusteringKey, int clusteringKeyIndex, String clusteringKeyType)
             throws DBAppException {
-        String targetRowClusteringKey = targetRow.getFields()[clusteringKeyIndex] + "";
         int start = 0;
         int end = this.tuples.size() - 1;
         int row = 0;
