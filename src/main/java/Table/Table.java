@@ -396,19 +396,21 @@ public class Table extends FileHandler {
                             int colIndex = Utils.getColIndex(htblColNameType, col);
                             BPlusTreeIndex colIdx = loadIndex(col);
                             if (colIdx != null) {
+                                if (!t.getFields()[colIndex].equals(htblColNameValue.get(col))) {
 
-                                Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
-                                if (pageRefs == null)
-                                    pageRefs = new Vector<>();
+                                    Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
+                                    if (pageRefs == null)
+                                        pageRefs = new Vector<>();
 
-                                pageRefs.add("page " + pageMid);
-                                Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
-                                pageRefs2.remove("page " + pageMid);
-                                colIdx.tree.delete(t.getFields()[colIndex].toString());
-                                colIdx.tree.delete(htblColNameValue.get(col).toString());
-                                colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
-                                colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
-                                colIdx.saveTree();
+                                    pageRefs.add("page " + pageMid);
+                                    Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
+                                    pageRefs2.remove("page " + pageMid);
+                                    colIdx.tree.delete(t.getFields()[colIndex].toString());
+                                    colIdx.tree.delete(htblColNameValue.get(col).toString());
+                                    colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
+                                    colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+                                    colIdx.saveTree();
+                                }
                             }
                             t.getFields()[colIndex] = htblColNameValue.get(col);
                         }
