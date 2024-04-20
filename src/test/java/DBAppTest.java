@@ -49,7 +49,7 @@ public class DBAppTest {
         Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 
         // CONDITIONS
-        htblColNameValue.put("name", "a");
+        // htblColNameValue.put("name", "a");
 
         engine.deleteFromTable(strTableName, htblColNameValue);
     }
@@ -62,7 +62,7 @@ public class DBAppTest {
         htblColNameValue.put("name", "c");
         htblColNameValue.put("gpa", 1.0);
 
-        engine.updateTable(strTableName, "110", htblColNameValue);
+        engine.updateTable(strTableName, "305", htblColNameValue);
     }
 
     public static void select() throws ClassNotFoundException, DBAppException, IOException {

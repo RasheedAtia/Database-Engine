@@ -156,6 +156,7 @@ public class DBApp {
 		Table t = loadTable(strTableName);
 		if (htblColNameValue.isEmpty()) {
 			t.pageNums = new Vector<>();
+			t.pageRanges = new Hashtable<>();
 		}
 
 		t.deleteRow(htblColNameValue, htblColNameType);

@@ -405,7 +405,7 @@ public class Table extends FileHandler {
             } else if (comparison2 > 0) {
                 pageStart = pageMid + 1;
             } else {
-                Page currPage = loadPage(pageMid);
+                Page currPage = loadPage(pageNums.get(pageMid));
                 Vector<Tuple> currPageContent = currPage.getTuples();
 
                 int begin = 0;

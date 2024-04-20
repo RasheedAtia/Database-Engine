@@ -1,0 +1,6 @@
+Student,gpa,java.lang.Double,false,gpaIndex,B+tree
+Student,name,java.lang.String,false,nameIndex,B+tree
+Student,id,java.lang.Integer,true,null,null
+Student,gpa,java.lang.Double,false,gpaIndex,B+tree
+Student,name,java.lang.String,false,nameIndex,B+tree
+Student,id,java.lang.Integer,true,null,null
