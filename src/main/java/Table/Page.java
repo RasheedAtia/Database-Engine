@@ -117,17 +117,6 @@ public class Page extends FileHandler {
     }
 
     /**
-     * Updates a tuple in the page.
-     *
-     * @param oldRow The old tuple
-     * @param newRow The new tuple
-     */
-    public void updateTuple(Tuple oldRow, Tuple newRow) {
-        int index = tuples.indexOf(oldRow);
-        tuples.set(index, newRow);
-    }
-
-    /**
      * Saves the page to disk.
      *
      * @param tableName use table name to create a new directory to store table
@@ -144,9 +133,9 @@ public class Page extends FileHandler {
      * Finds the appropriate row index for inserting a target row into the page
      * based on the clustering key.
      *
-     * @param targetRow          the target row to be inserted
-     * @param clusteringKeyIndex the index of the clustering key in the row
-     * @param clusteringKeyType  the data type of the clustering key
+     * @param targetRowClusteringKey the target row value to be inserted
+     * @param clusteringKeyIndex     the index of the clustering key in the row
+     * @param clusteringKeyType      the data type of the clustering key
      * @return the index of the row where the target row should be inserted
      * @throws DBAppException if an error occurs during the insertion process
      */
