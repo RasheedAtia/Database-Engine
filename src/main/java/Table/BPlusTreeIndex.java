@@ -10,7 +10,7 @@ import Exceptions.DBAppException;
 import Table.BTree.BTree;
 
 public class BPlusTreeIndex extends FileHandler {
-    public BTree<String, Vector<String>> tree;
+    public BTree tree;
     public String tableName;
     public String colName;
 
@@ -18,7 +18,7 @@ public class BPlusTreeIndex extends FileHandler {
             throws IOException, DBAppException, ClassNotFoundException {
         this.tableName = tableName;
         this.colName = colName;
-        this.tree = new BTree<String, Vector<String>>();
+        this.tree = new BTree();
         fillTree();
         saveTree();
     }
@@ -48,17 +48,42 @@ public class BPlusTreeIndex extends FileHandler {
 
         for (int pageNum : table.pageNums) {
             Page currPage = table.loadPage(pageNum);
-
+            Vector<String> pageRefs = new Vector<>();
             for (Tuple row : currPage.getTuples()) {
-                Vector<String> pageRefs = tree.search(row.getFields()[colIdx].toString());
 
-                if (pageRefs == null) {
-                    pageRefs = new Vector<>();
+                if (row.getFields()[colIdx] instanceof Integer) {
+                    pageRefs = (Vector<String>) tree.search((Integer) row.getFields()[colIdx]);
+                    if (pageRefs == null) {
+                        pageRefs = new Vector<>();
+                    }
+                    pageRefs.add("page " + pageNum);
+
+                    tree.delete((Integer) row.getFields()[colIdx]);
+                    tree.insert((Integer) row.getFields()[colIdx], pageRefs);
+
+                } else if (row.getFields()[colIdx] instanceof Double) {
+                    pageRefs = (Vector<String>) tree.search((Double) row.getFields()[colIdx]);
+
+                    if (pageRefs == null) {
+                        pageRefs = new Vector<>();
+                    }
+                    pageRefs.add("page " + pageNum);
+
+                    tree.delete((Double) row.getFields()[colIdx]);
+                    tree.insert((Double) row.getFields()[colIdx], pageRefs);
+
+                } else if (row.getFields()[colIdx] instanceof String) {
+                    pageRefs = (Vector<String>) tree.search(row.getFields()[colIdx].toString());
+
+                    if (pageRefs == null) {
+                        pageRefs = new Vector<>();
+                    }
+                    pageRefs.add("page " + pageNum);
+
+                    tree.delete(row.getFields()[colIdx].toString());
+                    tree.insert(row.getFields()[colIdx].toString(), pageRefs);
                 }
-                pageRefs.add("page " + pageNum);
 
-                tree.delete(row.getFields()[colIdx].toString());
-                tree.insert(row.getFields()[colIdx].toString(), pageRefs);
             }
         }
     }

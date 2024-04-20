@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Vector;
 
 import Engine.DBApp;
 import Engine.SQLTerm;
@@ -22,16 +23,16 @@ public class DBAppTest {
 
         engine.createTable(strTableName, "id", htblColNameType);
 
-        engine.createIndex(strTableName, "name", "gpaIndex");
+        engine.createIndex(strTableName, "gpa", "gpaIndex");
     }
 
     public static void insertRows() throws ClassNotFoundException, DBAppException, IOException {
         Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 50; i++) {
             htblColNameValue.clear();
             htblColNameValue.put("id", i);
-            if (i < 200) {
+            if (i < 20) {
                 htblColNameValue.put("name", "b");
             } else {
                 htblColNameValue.put("name", "a");
@@ -46,7 +47,7 @@ public class DBAppTest {
         Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 
         // CONDITIONS
-        htblColNameValue.put("name", "a");
+        htblColNameValue.put("gpa", new Double(46.5));
 
         engine.deleteFromTable(strTableName, htblColNameValue);
     }
@@ -122,15 +123,23 @@ public class DBAppTest {
 
             createTableAndIndicies();
             insertRows();
-            deleteRows();
+            // deleteRows();
             // updateRow();
             // select();
             // printTable();
             // printPageRanges();
-            printTree("id");
-            printTree("name");
+            // printTree("id");
+            // printTree("name");
             printTree("gpa");
+            Table testTable = engine.loadTable(strTableName);
+            BPlusTreeIndex tree = testTable.loadIndex("gpa");
 
+            Vector<Vector<String>> res = tree.tree.searchGreater(new Double(10.5),
+                    "java.lang.double");
+            for (Vector<String> v : res) {
+                System.out.println(v);
+            }
+            System.out.println(res.size());
         } catch (Exception e) {
             e.printStackTrace();
         }

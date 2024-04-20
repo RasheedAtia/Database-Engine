@@ -182,8 +182,15 @@ public class Table extends FileHandler {
             if (colIdx == null) {
                 continue;
             }
+            Vector<String> pageRefs = new Vector<>();
+            if (htblColNameValue.get(col) instanceof Integer) {
+                pageRefs = (Vector<String>) colIdx.tree.search((Integer) htblColNameValue.get(col));
+            } else if (htblColNameValue.get(col) instanceof Double) {
+                pageRefs = (Vector<String>) colIdx.tree.search((Double) htblColNameValue.get(col));
 
-            Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
+            } else if (htblColNameValue.get(col) instanceof String) {
+                pageRefs = (Vector<String>) colIdx.tree.search(htblColNameValue.get(col).toString());
+            }
 
             if (pageRefs == null) {
                 pageRefs = new Vector<>();
@@ -197,9 +204,18 @@ public class Table extends FileHandler {
             else {
                 pageRefs.add("page " + pageNums.get(pageNumIdx));
             }
+            if (htblColNameValue.get(col) instanceof Integer) {
+                colIdx.tree.delete((Integer) htblColNameValue.get(col));
+                colIdx.tree.insert((Integer) htblColNameValue.get(col), pageRefs);
+            } else if (htblColNameValue.get(col) instanceof Double) {
+                colIdx.tree.delete((Double) htblColNameValue.get(col));
+                colIdx.tree.insert((Double) htblColNameValue.get(col), pageRefs);
 
-            colIdx.tree.delete(htblColNameValue.get(col).toString());
-            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+            } else if (htblColNameValue.get(col) instanceof String) {
+                colIdx.tree.delete(htblColNameValue.get(col).toString());
+                colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+            }
+
             colIdx.saveTree();
         }
     }
@@ -363,7 +379,18 @@ public class Table extends FileHandler {
         while (pageStart <= pageEnd) {
             pageMid = pageStart + (pageEnd - pageStart) / 2;
             if (cluIdx != null) {
-                Vector<String> pageRefs = cluIdx.tree.search(strClusteringKeyValue);
+                Vector<String> pageRefs = new Vector<>();
+                switch (htblColNameType.get(clusteringKey).toLowerCase()) {
+                    case "java.lang.integer":
+                        pageRefs = (Vector<String>) cluIdx.tree.search(Integer.parseInt(strClusteringKeyValue));
+                        break;
+                    case "java.lang.double":
+                        pageRefs = (Vector<String>) cluIdx.tree.search(Double.parseDouble(strClusteringKeyValue));
+                        break;
+                    case "java.lang.string":
+                        pageRefs = (Vector<String>) cluIdx.tree.search(strClusteringKeyValue);
+                        break;
+                }
                 pageMid = Integer.parseInt(pageRefs.get(0).split(" ")[1]);
             }
 
@@ -397,18 +424,56 @@ public class Table extends FileHandler {
                             BPlusTreeIndex colIdx = loadIndex(col);
                             if (colIdx != null) {
                                 if (!t.getFields()[colIndex].equals(htblColNameValue.get(col))) {
+                                    Vector<String> pageRefs = new Vector<>();
+                                    Vector<String> pageRefs2 = new Vector<>();
+                                    switch (htblColNameType.get(clusteringKey).toLowerCase()) {
+                                        case "java.lang.integer":
+                                            pageRefs = (Vector<String>) colIdx.tree
+                                                    .search((Integer) htblColNameValue.get(col));
+                                            if (pageRefs == null)
+                                                pageRefs = new Vector<>();
 
-                                    Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
-                                    if (pageRefs == null)
-                                        pageRefs = new Vector<>();
+                                            pageRefs.add("page " + pageMid);
+                                            pageRefs2 = (Vector<String>) colIdx.tree
+                                                    .search((Integer) t.getFields()[colIndex]);
+                                            pageRefs2.remove("page " + pageMid);
+                                            colIdx.tree.delete((Integer) t.getFields()[colIndex]);
+                                            colIdx.tree.delete((Integer) htblColNameValue.get(col));
+                                            colIdx.tree.insert((Integer) t.getFields()[colIndex], pageRefs2);
+                                            colIdx.tree.insert((Integer) htblColNameValue.get(col), pageRefs);
+                                            break;
+                                        case "java.lang.double":
+                                            pageRefs = (Vector<String>) colIdx.tree
+                                                    .search((Double) htblColNameValue.get(col));
+                                            if (pageRefs == null)
+                                                pageRefs = new Vector<>();
 
-                                    pageRefs.add("page " + pageMid);
-                                    Vector<String> pageRefs2 = colIdx.tree.search(t.getFields()[colIndex].toString());
-                                    pageRefs2.remove("page " + pageMid);
-                                    colIdx.tree.delete(t.getFields()[colIndex].toString());
-                                    colIdx.tree.delete(htblColNameValue.get(col).toString());
-                                    colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
-                                    colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+                                            pageRefs.add("page " + pageMid);
+                                            pageRefs2 = (Vector<String>) colIdx.tree
+                                                    .search((Double) t.getFields()[colIndex]);
+                                            pageRefs2.remove("page " + pageMid);
+                                            colIdx.tree.delete((Double) t.getFields()[colIndex]);
+                                            colIdx.tree.delete((Double) htblColNameValue.get(col));
+                                            colIdx.tree.insert((Double) t.getFields()[colIndex], pageRefs2);
+                                            colIdx.tree.insert((Double) htblColNameValue.get(col), pageRefs);
+                                            break;
+                                        case "java.lang.string":
+                                            pageRefs = (Vector<String>) colIdx.tree
+                                                    .search(htblColNameValue.get(col).toString());
+                                            if (pageRefs == null)
+                                                pageRefs = new Vector<>();
+
+                                            pageRefs.add("page " + pageMid);
+                                            pageRefs2 = (Vector<String>) colIdx.tree
+                                                    .search(t.getFields()[colIndex].toString());
+                                            pageRefs2.remove("page " + pageMid);
+                                            colIdx.tree.delete(t.getFields()[colIndex].toString());
+                                            colIdx.tree.delete(htblColNameValue.get(col).toString());
+                                            colIdx.tree.insert(t.getFields()[colIndex].toString(), pageRefs2);
+                                            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+                                            break;
+                                    }
+
                                     colIdx.saveTree();
                                 }
                             }
@@ -454,10 +519,17 @@ public class Table extends FileHandler {
         HashSet<Integer> pagesToBeLoaded = new HashSet<>();
 
         for (String col : htblColNameValue.keySet()) {
+            Vector<String> pageRefs = new Vector<>();
             if (indicies.get(col) == null)
                 continue;
+            if (htblColNameValue.get(col) instanceof Integer) {
+                pageRefs = (Vector<String>) indicies.get(col).tree.search((Integer) htblColNameValue.get(col));
+            } else if (htblColNameValue.get(col) instanceof Double) {
+                pageRefs = (Vector<String>) indicies.get(col).tree.search((Double) htblColNameValue.get(col));
 
-            Vector<String> pageRefs = indicies.get(col).tree.search(htblColNameValue.get(col).toString());
+            } else if (htblColNameValue.get(col) instanceof String) {
+                pageRefs = (Vector<String>) indicies.get(col).tree.search(htblColNameValue.get(col).toString());
+            }
             // if the value is not found in the index, then the row does not exist
             if (pageRefs == null) {
                 return;
@@ -587,14 +659,43 @@ public class Table extends FileHandler {
             Hashtable<String, Object> htblColNameValue, int pageNum) throws ClassNotFoundException, IOException {
         for (String col : indicies.keySet()) {
             BPlusTreeIndex colIdx = indicies.get(col);
+            Vector<String> pageRefs = new Vector<>();
 
-            Vector<String> pageRefs = colIdx.tree.search(htblColNameValue.get(col).toString());
-            if (colIdx.tree.search(htblColNameValue.get(col).toString()) == null) {
-                continue;
+            if (htblColNameValue.get(col) instanceof Integer) {
+
+                pageRefs = (Vector<String>) colIdx.tree.search((Integer) htblColNameValue.get(col));
+                if (pageRefs == null) {
+                    continue;
+                }
+                pageRefs.remove("page " + pageNum);
+                colIdx.tree.delete((Integer) htblColNameValue.get(col));
+                if (!pageRefs.isEmpty()) {
+                    colIdx.tree.insert((Integer) htblColNameValue.get(col), pageRefs);
+                }
+
+            } else if (htblColNameValue.get(col) instanceof Double) {
+                pageRefs = (Vector<String>) colIdx.tree.search((Double) htblColNameValue.get(col));
+                if (pageRefs == null) {
+                    continue;
+                }
+                pageRefs.remove("page " + pageNum);
+                colIdx.tree.delete((Double) htblColNameValue.get(col));
+                if (!pageRefs.isEmpty()) {
+                    colIdx.tree.insert((Double) htblColNameValue.get(col), pageRefs);
+                }
+
+            } else if (htblColNameValue.get(col) instanceof String) {
+                pageRefs = (Vector<String>) colIdx.tree.search(htblColNameValue.get(col).toString());
+                if (pageRefs == null) {
+                    continue;
+                }
+                pageRefs.remove("page " + pageNum);
+                colIdx.tree.delete(htblColNameValue.get(col).toString());
+                if (!pageRefs.isEmpty()) {
+                    colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+                }
             }
-            pageRefs.remove("page " + pageNum);
-            colIdx.tree.delete(htblColNameValue.get(col).toString());
-            colIdx.tree.insert(htblColNameValue.get(col).toString(), pageRefs);
+
             colIdx.saveTree();
         }
     }
@@ -619,13 +720,13 @@ public class Table extends FileHandler {
      */
     public Iterator selectFromTable(SQLTerm[] arrSQLTerms, String[] strarrOperators,
             Hashtable<String, String> htblColNameType) throws DBAppException, ClassNotFoundException, IOException {
+
         String tableName = arrSQLTerms[0]._strTableName;
         Vector<Tuple> resultSet = new Vector<>();
-        for (String string : strarrOperators) {
-            if (!string.equals("AND") && !string.equals("OR") && !string.equals("XOR")) {
-                throw new DBAppException("Invalid operator");
-            }
-        }
+        Hashtable<String, BPlusTreeIndex> indicies = loadAllBPlusTrees(htblColNameType);
+        Vector<Integer> pageNums2 = new Vector<>(pageNums);
+        boolean indexFound = false;
+
         for (SQLTerm term : arrSQLTerms) {
             if (!(term._strOperator.equals("=") || term._strOperator.equals("!=") || term._strOperator.equals(">")
                     || term._strOperator.equals("<") || term._strOperator.equals(">=")
@@ -638,128 +739,177 @@ public class Table extends FileHandler {
             }
 
         }
-        for (int pageNum = 0; pageNum < pageNums.size(); pageNum++) {
-            Page currPage = loadPage(pageNums.get(pageNum));
 
-            for (int row = 0; row < currPage.getTuples().size(); row++) {
-                Tuple currRow = currPage.getTuples().get(row);
-                Vector<Boolean> tupleConditions = new Vector<>();
-
-                for (SQLTerm term : arrSQLTerms) {
-                    String colName = term._strColumnName;
-                    Object colValue = term._objValue;
-                    String operator = term._strOperator;
-                    int colIndex = 0;
-
-                    for (String col : htblColNameType.keySet()) {
-                        if (col.equals(colName)) {
-                            break;
-                        }
-                        colIndex++;
-                    }
-                    Object rowValue = currRow.getFields()[colIndex];
-                    int comparison = Utils.compareKeys(rowValue.toString(), colValue.toString(),
-                            htblColNameType.get(colName).toLowerCase());
-                    switch (operator) {
-                        case "=":
-                            tupleConditions.add(rowValue.equals(colValue));
-                            break;
-
-                        case "!=":
-                            tupleConditions.add(!rowValue.equals(colValue));
-                            break;
-
-                        case ">":
-                            tupleConditions.add(comparison > 0);
-                            break;
-
-                        case "<":
-                            tupleConditions.add(comparison < 0);
-                            break;
-
-                        case ">=":
-                            tupleConditions.add(comparison >= 0);
-                            break;
-
-                        case "<=":
-                            tupleConditions.add(comparison <= 0);
-                            break;
-
-                        default:
-                            throw new DBAppException("Invalid operator");
-                    }
-
-                }
-
-                Vector<String> strVecOperators = new Vector<>();
-                for (int m = 0; m < strarrOperators.length; m++) {
-                    strVecOperators.add(strarrOperators[m]);
-                }
-                int m = 0;
-                int countAnd = 0;
-                int countOR = 0;
-                int countXOR = 0;
-
-                for (int d = 0; d < strVecOperators.size(); d++) {
-                    if (strVecOperators.get(d).equals("AND")) {
-                        countAnd = countAnd + 1;
-                    }
-                }
-                while (countAnd > 0) {
-                    if (strVecOperators.get(m).equals("AND")) {
-                        tupleConditions.set(m, tupleConditions.get(m) && tupleConditions.get(m + 1));
-                        tupleConditions.remove(m + 1);
-                        strVecOperators.remove(m);
-                        m = 0;
-                        countAnd--;
-                    } else {
-                        m++;
-                    }
-                }
-
-                for (int d = 0; d < strVecOperators.size(); d++) {
-                    if (strVecOperators.get(d).equals("OR")) {
-                        countOR = countOR + 1;
-                    }
-                }
-
-                m = 0;
-                while (countOR > 0) {
-                    if (strVecOperators.get(m).equals("OR")) {
-                        tupleConditions.set(m, tupleConditions.get(m) || tupleConditions.get(m + 1));
-                        tupleConditions.remove(m + 1);
-                        strVecOperators.remove(m);
-                        m = 0;
-                        countOR--;
-                    } else {
-                        m++;
-                    }
-                }
-
-                for (int d = 0; d < strVecOperators.size(); d++) {
-                    if (strVecOperators.get(d).equals("XOR")) {
-                        countXOR = countXOR + d + 1;
-                    }
-                }
-
-                m = 0;
-                while (countXOR > 0) {
-                    if (strVecOperators.get(m).equals("XOR")) {
-                        tupleConditions.set(m, tupleConditions.get(m) ^ tupleConditions.get(m + 1));
-                        tupleConditions.remove(m + 1);
-                        strVecOperators.remove(m);
-                        m = 0;
-                        countXOR--;
-                    } else {
-                        m++;
-                    }
-                }
-                if (tupleConditions.get(0)) {
-                    resultSet.add(currRow);
-                }
+        for (String string : strarrOperators) {
+            if (!string.equals("AND") && !string.equals("OR") && !string.equals("XOR")) {
+                throw new DBAppException("Invalid operator");
             }
         }
 
+        for (SQLTerm term : arrSQLTerms) {
+            if (term._strColumnName.equals(indicies.get(term._strColumnName).colName)) {
+                indexFound = true;
+            }
+        }
+
+        if (!indexFound) {
+            for (int pageNum = 0; pageNum < pageNums.size(); pageNum++) {
+                Page currPage = loadPage(pageNums.get(pageNum));
+
+                for (int row = 0; row < currPage.getTuples().size(); row++) {
+                    Tuple currRow = currPage.getTuples().get(row);
+                    Vector<Boolean> tupleConditions = new Vector<>();
+
+                    for (SQLTerm term : arrSQLTerms) {
+                        String colName = term._strColumnName;
+                        Object colValue = term._objValue;
+                        String operator = term._strOperator;
+                        int colIndex = 0;
+
+                        for (String col : htblColNameType.keySet()) {
+                            if (col.equals(colName)) {
+                                break;
+                            }
+                            colIndex++;
+                        }
+                        Object rowValue = currRow.getFields()[colIndex];
+                        int comparison = Utils.compareKeys(rowValue.toString(), colValue.toString(),
+                                htblColNameType.get(colName).toLowerCase());
+                        switch (operator) {
+                            case "=":
+                                tupleConditions.add(rowValue.equals(colValue));
+                                break;
+
+                            case "!=":
+                                tupleConditions.add(!rowValue.equals(colValue));
+                                break;
+
+                            case ">":
+                                tupleConditions.add(comparison > 0);
+                                break;
+
+                            case "<":
+                                tupleConditions.add(comparison < 0);
+                                break;
+
+                            case ">=":
+                                tupleConditions.add(comparison >= 0);
+                                break;
+
+                            case "<=":
+                                tupleConditions.add(comparison <= 0);
+                                break;
+
+                            default:
+                                throw new DBAppException("Invalid operator");
+                        }
+
+                    }
+
+                    Vector<String> strVecOperators = new Vector<>();
+                    for (int m = 0; m < strarrOperators.length; m++) {
+                        strVecOperators.add(strarrOperators[m]);
+                    }
+                    int m = 0;
+                    int countAnd = 0;
+                    int countOR = 0;
+                    int countXOR = 0;
+
+                    for (int d = 0; d < strVecOperators.size(); d++) {
+                        if (strVecOperators.get(d).equals("AND")) {
+                            countAnd = countAnd + 1;
+                        }
+                    }
+                    while (countAnd > 0) {
+                        if (strVecOperators.get(m).equals("AND")) {
+                            tupleConditions.set(m, tupleConditions.get(m) && tupleConditions.get(m + 1));
+                            tupleConditions.remove(m + 1);
+                            strVecOperators.remove(m);
+                            m = 0;
+                            countAnd--;
+                        } else {
+                            m++;
+                        }
+                    }
+
+                    for (int d = 0; d < strVecOperators.size(); d++) {
+                        if (strVecOperators.get(d).equals("OR")) {
+                            countOR = countOR + 1;
+                        }
+                    }
+
+                    m = 0;
+                    while (countOR > 0) {
+                        if (strVecOperators.get(m).equals("OR")) {
+                            tupleConditions.set(m, tupleConditions.get(m) || tupleConditions.get(m + 1));
+                            tupleConditions.remove(m + 1);
+                            strVecOperators.remove(m);
+                            m = 0;
+                            countOR--;
+                        } else {
+                            m++;
+                        }
+                    }
+
+                    for (int d = 0; d < strVecOperators.size(); d++) {
+                        if (strVecOperators.get(d).equals("XOR")) {
+                            countXOR = countXOR + d + 1;
+                        }
+                    }
+
+                    m = 0;
+                    while (countXOR > 0) {
+                        if (strVecOperators.get(m).equals("XOR")) {
+                            tupleConditions.set(m, tupleConditions.get(m) ^ tupleConditions.get(m + 1));
+                            tupleConditions.remove(m + 1);
+                            strVecOperators.remove(m);
+                            m = 0;
+                            countXOR--;
+                        } else {
+                            m++;
+                        }
+                    }
+                    if (tupleConditions.get(0)) {
+                        resultSet.add(currRow);
+                    }
+                }
+            }
+
+        } else {
+
+            Vector<String> pageRefs = new Vector<>();
+            Vector<HashSet<Integer>> pageRefsInt = new Vector<>();
+            HashSet<Integer> pageRefsIntCondition;
+            int i = 0;
+            for (SQLTerm term : arrSQLTerms) {
+                if (term._strColumnName.equals(indicies.get(term._strColumnName).colName)) {
+                    pageRefsIntCondition = new HashSet<>();
+                    if (term._strOperator.equals("=")) {
+                        equalCondition(indicies, pageRefsInt, pageRefsIntCondition, term);
+                    }
+
+                    pageNums2.retainAll(pageRefsInt);
+
+                }
+                i++;
+            }
+        }
         return resultSet.iterator();
+    }
+
+    private void equalCondition(Hashtable<String, BPlusTreeIndex> indicies, Vector<HashSet<Integer>> pageRefsInt,
+            HashSet<Integer> pageRefsIntCondition, SQLTerm term) {
+        Vector<String> pageRefs;
+        if (term._objValue instanceof Integer) {
+            pageRefs = (Vector<String>) indicies.get(term._strColumnName).tree.search((Integer) term._objValue);
+        } else if (term._objValue instanceof Double) {
+            pageRefs = (Vector<String>) indicies.get(term._strColumnName).tree.search((Double) term._objValue);
+        } else {
+            pageRefs = (Vector<String>) indicies.get(term._strColumnName).tree.search(term._objValue.toString());
+        }
+        for (String x : pageRefs) {
+            pageRefsIntCondition.add(Integer.parseInt(x.split(" ")[1]));
+        }
+        pageRefsInt.add(pageRefsIntCondition);
     }
 }
