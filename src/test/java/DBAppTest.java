@@ -24,20 +24,22 @@ public class DBAppTest {
         engine.createTable(strTableName, "id", htblColNameType);
 
         engine.createIndex(strTableName, "gpa", "gpaIndex");
+        engine.createIndex(strTableName, "name", "nameIndex");
+        // engine.createIndex(strTableName, "id", "idIndex");
     }
 
     public static void insertRows() throws ClassNotFoundException, DBAppException, IOException {
         Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 500; i++) {
             htblColNameValue.clear();
             htblColNameValue.put("id", i);
-            if (i < 20) {
-                htblColNameValue.put("name", "b");
-            } else {
+            if (i >= 200 && i <= 399) {
                 htblColNameValue.put("name", "a");
+            } else {
+                htblColNameValue.put("name", "b");
             }
-            htblColNameValue.put("gpa", 0.5 + i);
+            htblColNameValue.put("gpa", 0.5);
             engine.insertIntoTable(strTableName, htblColNameValue);
         }
     }
@@ -47,7 +49,7 @@ public class DBAppTest {
         Hashtable<String, Object> htblColNameValue = new Hashtable<>();
 
         // CONDITIONS
-        htblColNameValue.put("gpa", new Double(46.5));
+        htblColNameValue.put("name", "a");
 
         engine.deleteFromTable(strTableName, htblColNameValue);
     }
@@ -65,20 +67,16 @@ public class DBAppTest {
 
     public static void select() throws ClassNotFoundException, DBAppException, IOException {
         SQLTerm[] arrSQLTerms;
-        arrSQLTerms = new SQLTerm[6];
-        arrSQLTerms[0] = new SQLTerm("Student", "id", "=", new Integer(200));
-        arrSQLTerms[1] = new SQLTerm("Student", "id", ">", new Integer(3000));
-        arrSQLTerms[2] = new SQLTerm("Student", "id", "=", new Integer(300));
-        arrSQLTerms[3] = new SQLTerm("Student", "id", "=", new Integer(200));
-        arrSQLTerms[4] = new SQLTerm("Student", "id", ">", new Integer(6000));
-        arrSQLTerms[5] = new SQLTerm("Student", "id", "=", new Integer(300));
+        arrSQLTerms = new SQLTerm[4];
+        arrSQLTerms[0] = new SQLTerm("Student", "id", "=", new Integer(17));
+        arrSQLTerms[1] = new SQLTerm("Student", "name", "!=", "a");
+        arrSQLTerms[2] = new SQLTerm("Student", "id", ">", new Integer(15));
+        arrSQLTerms[3] = new SQLTerm("Student", "id", "<=", new Integer(25));
 
-        String[] strarrOperators = new String[5];
-        strarrOperators[0] = "AND";
-        strarrOperators[1] = "OR";
+        String[] strarrOperators = new String[3];
+        strarrOperators[0] = "XOR";
+        strarrOperators[1] = "AND";
         strarrOperators[2] = "AND";
-        strarrOperators[3] = "AND";
-        strarrOperators[4] = "AND";
 
         Iterator resultSet = engine.selectFromTable(arrSQLTerms, strarrOperators);
         while (resultSet.hasNext()) {
@@ -123,23 +121,36 @@ public class DBAppTest {
 
             createTableAndIndicies();
             insertRows();
-            // deleteRows();
+            deleteRows();
             // updateRow();
             // select();
-            // printTable();
-            // printPageRanges();
+            printTable();
+            printPageRanges();
             // printTree("id");
             // printTree("name");
-            printTree("gpa");
-            Table testTable = engine.loadTable(strTableName);
-            BPlusTreeIndex tree = testTable.loadIndex("gpa");
+            // printTree("gpa");
+            // Table testTable = engine.loadTable(strTableName);
+            // BPlusTreeIndex tree = testTable.loadIndex("gpa");
+            // BPlusTreeIndex tree1 = testTable.loadIndex("id");
+            // BPlusTreeIndex tree2 = testTable.loadIndex("name");
 
-            Vector<Vector<String>> res = tree.tree.searchGreater(new Double(10.5),
-                    "java.lang.double");
-            for (Vector<String> v : res) {
-                System.out.println(v);
-            }
-            System.out.println(res.size());
+            // Vector<Vector<String>> res = tree.tree.searchLower(new Double(0.6),
+            // "java.lang.double");
+            // for (Vector<String> v : res) {
+            // System.out.println(v);
+            // }
+            // System.out.println("sadf");
+            // Vector<Vector<String>> res1 = tree1.tree.searchLower(new Integer(90),
+            // "java.lang.integer");
+            // for (Vector<String> v : res1) {
+            // System.out.println(v);
+            // }
+            // System.out.println("asdf");
+            // Vector<Vector<String>> res2 = tree2.tree.searchLower("b",
+            // "java.lang.string");
+            // for (Vector<String> v : res2) {
+            // System.out.println(v);
+            // }
         } catch (Exception e) {
             e.printStackTrace();
         }

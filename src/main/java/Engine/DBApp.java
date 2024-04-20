@@ -3,6 +3,7 @@ package Engine;
 /** * @author Wael Abouelsaadat */
 import java.util.Iterator;
 import java.util.Properties;
+import java.util.Vector;
 
 import Exceptions.DBAppException;
 import Table.Page;
@@ -153,6 +154,9 @@ public class DBApp {
 		Hashtable<String, String> htblColNameType = metadata.loadColumnTypes(strTableName);
 		Utils.checkColsTypeValidity(htblColNameValue, htblColNameType);
 		Table t = loadTable(strTableName);
+		if (htblColNameValue.isEmpty()) {
+			t.pageNums = new Vector<>();
+		}
 
 		t.deleteRow(htblColNameValue, htblColNameType);
 		t.saveTable();

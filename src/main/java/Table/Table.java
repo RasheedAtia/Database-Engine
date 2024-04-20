@@ -426,7 +426,7 @@ public class Table extends FileHandler {
                                 if (!t.getFields()[colIndex].equals(htblColNameValue.get(col))) {
                                     Vector<String> pageRefs = new Vector<>();
                                     Vector<String> pageRefs2 = new Vector<>();
-                                    switch (htblColNameType.get(clusteringKey).toLowerCase()) {
+                                    switch (htblColNameType.get(col).toLowerCase()) {
                                         case "java.lang.integer":
                                             pageRefs = (Vector<String>) colIdx.tree
                                                     .search((Integer) htblColNameValue.get(col));
@@ -619,7 +619,6 @@ public class Table extends FileHandler {
 
         Vector<Integer> pagesToBeRemoved = new Vector<>();
         for (int pageNum : pages) {
-            System.out.println(pageNum);
             Page currPage = loadPage(pageNum);
             Page newPage = new Page(currPage.name);
 
@@ -747,159 +746,252 @@ public class Table extends FileHandler {
         }
 
         for (SQLTerm term : arrSQLTerms) {
+            if (indicies.get(term._strColumnName) == null) {
+                continue;
+            }
             if (term._strColumnName.equals(indicies.get(term._strColumnName).colName)) {
                 indexFound = true;
             }
         }
-
-        if (!indexFound) {
-            for (int pageNum = 0; pageNum < pageNums.size(); pageNum++) {
-                Page currPage = loadPage(pageNums.get(pageNum));
-
-                for (int row = 0; row < currPage.getTuples().size(); row++) {
-                    Tuple currRow = currPage.getTuples().get(row);
-                    Vector<Boolean> tupleConditions = new Vector<>();
-
-                    for (SQLTerm term : arrSQLTerms) {
-                        String colName = term._strColumnName;
-                        Object colValue = term._objValue;
-                        String operator = term._strOperator;
-                        int colIndex = 0;
-
-                        for (String col : htblColNameType.keySet()) {
-                            if (col.equals(colName)) {
-                                break;
-                            }
-                            colIndex++;
-                        }
-                        Object rowValue = currRow.getFields()[colIndex];
-                        int comparison = Utils.compareKeys(rowValue.toString(), colValue.toString(),
-                                htblColNameType.get(colName).toLowerCase());
-                        switch (operator) {
-                            case "=":
-                                tupleConditions.add(rowValue.equals(colValue));
-                                break;
-
-                            case "!=":
-                                tupleConditions.add(!rowValue.equals(colValue));
-                                break;
-
-                            case ">":
-                                tupleConditions.add(comparison > 0);
-                                break;
-
-                            case "<":
-                                tupleConditions.add(comparison < 0);
-                                break;
-
-                            case ">=":
-                                tupleConditions.add(comparison >= 0);
-                                break;
-
-                            case "<=":
-                                tupleConditions.add(comparison <= 0);
-                                break;
-
-                            default:
-                                throw new DBAppException("Invalid operator");
-                        }
-
-                    }
-
-                    Vector<String> strVecOperators = new Vector<>();
-                    for (int m = 0; m < strarrOperators.length; m++) {
-                        strVecOperators.add(strarrOperators[m]);
-                    }
-                    int m = 0;
-                    int countAnd = 0;
-                    int countOR = 0;
-                    int countXOR = 0;
-
-                    for (int d = 0; d < strVecOperators.size(); d++) {
-                        if (strVecOperators.get(d).equals("AND")) {
-                            countAnd = countAnd + 1;
-                        }
-                    }
-                    while (countAnd > 0) {
-                        if (strVecOperators.get(m).equals("AND")) {
-                            tupleConditions.set(m, tupleConditions.get(m) && tupleConditions.get(m + 1));
-                            tupleConditions.remove(m + 1);
-                            strVecOperators.remove(m);
-                            m = 0;
-                            countAnd--;
-                        } else {
-                            m++;
-                        }
-                    }
-
-                    for (int d = 0; d < strVecOperators.size(); d++) {
-                        if (strVecOperators.get(d).equals("OR")) {
-                            countOR = countOR + 1;
-                        }
-                    }
-
-                    m = 0;
-                    while (countOR > 0) {
-                        if (strVecOperators.get(m).equals("OR")) {
-                            tupleConditions.set(m, tupleConditions.get(m) || tupleConditions.get(m + 1));
-                            tupleConditions.remove(m + 1);
-                            strVecOperators.remove(m);
-                            m = 0;
-                            countOR--;
-                        } else {
-                            m++;
-                        }
-                    }
-
-                    for (int d = 0; d < strVecOperators.size(); d++) {
-                        if (strVecOperators.get(d).equals("XOR")) {
-                            countXOR = countXOR + d + 1;
-                        }
-                    }
-
-                    m = 0;
-                    while (countXOR > 0) {
-                        if (strVecOperators.get(m).equals("XOR")) {
-                            tupleConditions.set(m, tupleConditions.get(m) ^ tupleConditions.get(m + 1));
-                            tupleConditions.remove(m + 1);
-                            strVecOperators.remove(m);
-                            m = 0;
-                            countXOR--;
-                        } else {
-                            m++;
-                        }
-                    }
-                    if (tupleConditions.get(0)) {
-                        resultSet.add(currRow);
-                    }
-                }
-            }
-
-        } else {
-
-            Vector<String> pageRefs = new Vector<>();
+        Vector<Integer> pagesToBeLoaded = new Vector<Integer>(pageNums);
+        if (indexFound) {
+            // Vector<String> pageRefs = new Vector<>();
             Vector<HashSet<Integer>> pageRefsInt = new Vector<>();
             HashSet<Integer> pageRefsIntCondition;
+            HashSet<Integer> pageNumsHashset = new HashSet<>();
+
+            for (Integer x : pageNums2) {
+                pageNumsHashset.add(x);
+            }
+
             int i = 0;
             for (SQLTerm term : arrSQLTerms) {
-                if (term._strColumnName.equals(indicies.get(term._strColumnName).colName)) {
-                    pageRefsIntCondition = new HashSet<>();
-                    if (term._strOperator.equals("=")) {
-                        equalCondition(indicies, pageRefsInt, pageRefsIntCondition, term);
+                if (indicies.get(term._strColumnName) == null || term._strOperator.equals("!=")) {
+                    pageRefsInt.add(pageNumsHashset);
+                    continue;
+                }
+
+                pageRefsIntCondition = new HashSet<>();
+                Vector<Vector<String>> pageRefs = new Vector<>();
+
+                switch (term._strOperator) {
+                    case "=":
+                        pageRefsIntCondition = equalCondition(indicies, term);
+                        break;
+
+                    case ">":
+                        if (term._objValue instanceof Integer) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchGreater((Integer) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else if (term._objValue instanceof Double) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchGreater((Double) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchGreater(term._objValue.toString(),
+                                    htblColNameType.get(term._strColumnName));
+                        }
+
+                        break;
+
+                    case "<":
+                        if (term._objValue instanceof Integer) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchLower((Integer) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else if (term._objValue instanceof Double) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchLower((Double) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchLower(term._objValue.toString(),
+                                    htblColNameType.get(term._strColumnName));
+                        }
+                        break;
+
+                    case ">=":
+                        if (term._objValue instanceof Integer) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchGreater((Integer) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else if (term._objValue instanceof Double) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchGreater((Double) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchGreater(term._objValue.toString(),
+                                    htblColNameType.get(term._strColumnName));
+                        }
+
+                        break;
+
+                    case "<=":
+                        if (term._objValue instanceof Integer) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchLower((Integer) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else if (term._objValue instanceof Double) {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchLower((Double) term._objValue,
+                                    htblColNameType.get(term._strColumnName));
+                        } else {
+                            pageRefs = indicies.get(term._strColumnName).tree.searchLower(term._objValue.toString(),
+                                    htblColNameType.get(term._strColumnName));
+                        }
+                        break;
+
+                    default:
+                        throw new DBAppException("Invalid operator");
+                }
+
+                if (!term._strOperator.equals("=")) {
+                    for (Vector<String> v : pageRefs) {
+                        for (String x : v) {
+                            pageRefsIntCondition.add(Integer.parseInt(x.split(" ")[1]));
+                        }
                     }
 
-                    pageNums2.retainAll(pageRefsInt);
-
+                    if (term._strOperator.equals(">=") || term._strOperator.equals("<=")) {
+                        HashSet<Integer> tmp = equalCondition(indicies, term);
+                        for (Integer x : tmp) {
+                            pageRefsIntCondition.add(x);
+                        }
+                    }
                 }
-                i++;
+
+                pageRefsInt.add(pageRefsIntCondition);
+
+            }
+            HashSet<Integer> tmp = mystery(pageRefsInt, strarrOperators);
+            pagesToBeLoaded = new Vector<>();
+            for (Integer x : tmp) {
+                pagesToBeLoaded.add(x);
             }
         }
+
+        for (int pageNum = 0; pageNum < pagesToBeLoaded.size(); pageNum++) {
+            Page currPage = loadPage(pagesToBeLoaded.get(pageNum));
+
+            for (int row = 0; row < currPage.getTuples().size(); row++) {
+                Tuple currRow = currPage.getTuples().get(row);
+                Vector<Boolean> tupleConditions = new Vector<>();
+
+                for (SQLTerm term : arrSQLTerms) {
+                    String colName = term._strColumnName;
+                    Object colValue = term._objValue;
+                    String operator = term._strOperator;
+                    int colIndex = 0;
+
+                    for (String col : htblColNameType.keySet()) {
+                        if (col.equals(colName)) {
+                            break;
+                        }
+                        colIndex++;
+                    }
+                    Object rowValue = currRow.getFields()[colIndex];
+                    int comparison = Utils.compareKeys(rowValue.toString(), colValue.toString(),
+                            htblColNameType.get(colName).toLowerCase());
+                    switch (operator) {
+                        case "=":
+                            tupleConditions.add(rowValue.equals(colValue));
+                            break;
+
+                        case "!=":
+                            tupleConditions.add(!rowValue.equals(colValue));
+                            break;
+
+                        case ">":
+                            tupleConditions.add(comparison > 0);
+                            break;
+
+                        case "<":
+                            tupleConditions.add(comparison < 0);
+                            break;
+
+                        case ">=":
+                            tupleConditions.add(comparison >= 0);
+                            break;
+
+                        case "<=":
+                            tupleConditions.add(comparison <= 0);
+                            break;
+
+                        default:
+                            throw new DBAppException("Invalid operator");
+                    }
+
+                }
+
+                Vector<String> strVecOperators = new Vector<>();
+                for (int m = 0; m < strarrOperators.length; m++) {
+                    strVecOperators.add(strarrOperators[m]);
+                }
+                int m = 0;
+                int countAnd = 0;
+                int countOR = 0;
+                int countXOR = 0;
+
+                for (int d = 0; d < strVecOperators.size(); d++) {
+                    if (strVecOperators.get(d).equals("AND")) {
+                        countAnd = countAnd + 1;
+                    }
+                }
+                while (countAnd > 0) {
+                    if (strVecOperators.get(m).equals("AND")) {
+                        tupleConditions.set(m, tupleConditions.get(m) && tupleConditions.get(m + 1));
+                        tupleConditions.remove(m + 1);
+                        strVecOperators.remove(m);
+                        m = 0;
+                        countAnd--;
+                    } else {
+                        m++;
+                    }
+                }
+
+                for (int d = 0; d < strVecOperators.size(); d++) {
+                    if (strVecOperators.get(d).equals("OR")) {
+                        countOR = countOR + 1;
+                    }
+                }
+
+                m = 0;
+                while (countOR > 0) {
+                    if (strVecOperators.get(m).equals("OR")) {
+                        tupleConditions.set(m, tupleConditions.get(m) || tupleConditions.get(m + 1));
+                        tupleConditions.remove(m + 1);
+                        strVecOperators.remove(m);
+                        m = 0;
+                        countOR--;
+                    } else {
+                        m++;
+                    }
+                }
+
+                for (int d = 0; d < strVecOperators.size(); d++) {
+                    if (strVecOperators.get(d).equals("XOR")) {
+                        countXOR = countXOR + d + 1;
+                    }
+                }
+
+                m = 0;
+                while (countXOR > 0) {
+                    if (strVecOperators.get(m).equals("XOR")) {
+                        tupleConditions.set(m, tupleConditions.get(m) ^ tupleConditions.get(m + 1));
+                        tupleConditions.remove(m + 1);
+                        strVecOperators.remove(m);
+                        m = 0;
+                        countXOR--;
+                    } else {
+                        m++;
+                    }
+                }
+                if (tupleConditions.get(0)) {
+                    resultSet.add(currRow);
+                }
+            }
+        }
+
         return resultSet.iterator();
+
     }
 
-    private void equalCondition(Hashtable<String, BPlusTreeIndex> indicies, Vector<HashSet<Integer>> pageRefsInt,
-            HashSet<Integer> pageRefsIntCondition, SQLTerm term) {
-        Vector<String> pageRefs;
+    private HashSet<Integer> equalCondition(Hashtable<String, BPlusTreeIndex> indicies, SQLTerm term) {
+        Vector<String> pageRefs = new Vector<>();
+        HashSet<Integer> pageRefsIntCondition = new HashSet<>();
+
         if (term._objValue instanceof Integer) {
             pageRefs = (Vector<String>) indicies.get(term._strColumnName).tree.search((Integer) term._objValue);
         } else if (term._objValue instanceof Double) {
@@ -907,9 +999,90 @@ public class Table extends FileHandler {
         } else {
             pageRefs = (Vector<String>) indicies.get(term._strColumnName).tree.search(term._objValue.toString());
         }
-        for (String x : pageRefs) {
-            pageRefsIntCondition.add(Integer.parseInt(x.split(" ")[1]));
+        if (pageRefs != null) {
+            for (String x : pageRefs) {
+                pageRefsIntCondition.add(Integer.parseInt(x.split(" ")[1]));
+            }
         }
-        pageRefsInt.add(pageRefsIntCondition);
+
+        return pageRefsIntCondition;
+    }
+
+    private HashSet<Integer> mystery(Vector<HashSet<Integer>> pageRefsInt, String[] strarrOperators) {
+        Vector<String> strVecOperators = new Vector<>();
+        for (int m = 0; m < strarrOperators.length; m++) {
+            strVecOperators.add(strarrOperators[m]);
+        }
+        int m = 0;
+        int countAnd = 0;
+        int countOR = 0;
+        int countXOR = 0;
+
+        for (int d = 0; d < strVecOperators.size(); d++) {
+            if (strVecOperators.get(d).equals("AND")) {
+                countAnd = countAnd + 1;
+            }
+        }
+        while (countAnd > 0) {
+            if (strVecOperators.get(m).equals("AND")) {
+                HashSet<Integer> tmp = pageRefsInt.get(m);
+                tmp.retainAll(pageRefsInt.get(m + 1));
+                pageRefsInt.set(m, tmp);
+                pageRefsInt.remove(m + 1);
+                strVecOperators.remove(m);
+                m = 0;
+                countAnd--;
+            } else {
+                m++;
+            }
+        }
+
+        for (int d = 0; d < strVecOperators.size(); d++) {
+            if (strVecOperators.get(d).equals("OR")) {
+                countOR = countOR + 1;
+            }
+        }
+
+        m = 0;
+        while (countOR > 0) {
+            if (strVecOperators.get(m).equals("OR")) {
+                HashSet<Integer> tmp = pageRefsInt.get(m);
+                for (Integer x : pageRefsInt.get(m + 1)) {
+                    tmp.add(x);
+                }
+                pageRefsInt.set(m, tmp);
+                pageRefsInt.remove(m + 1);
+                strVecOperators.remove(m);
+                m = 0;
+                countOR--;
+            } else {
+                m++;
+            }
+        }
+
+        for (int d = 0; d < strVecOperators.size(); d++) {
+            if (strVecOperators.get(d).equals("XOR")) {
+                countXOR = countXOR + d + 1;
+            }
+        }
+
+        m = 0;
+        while (countXOR > 0) {
+            if (strVecOperators.get(m).equals("XOR")) {
+                HashSet<Integer> tmp = pageRefsInt.get(m);
+                for (Integer x : pageRefsInt.get(m + 1)) {
+                    tmp.add(x);
+                }
+                pageRefsInt.set(m, tmp);
+                pageRefsInt.remove(m + 1);
+                strVecOperators.remove(m);
+                m = 0;
+                countXOR--;
+            } else {
+                m++;
+            }
+        }
+
+        return pageRefsInt.get(0);
     }
 }
